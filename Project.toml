@@ -1,0 +1,12 @@
+name = "DesignEnvironments"
+uuid = "ffa4986d-698b-428b-9f2e-b9ffc5f7b478"
+authors = ["gladisor "]
+version = "0.1.0"
+
+[deps]
+BlockDiagonals = "0a1fb500-61f7-11e9-3c65-f5ef3456f9f0"
+IntervalSets = "8197267c-284f-5f27-9208-e0e47529a953"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+ReinforcementLearning = "158674fc-8238-5cab-b5ba-03dfc80d1318"
+SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
