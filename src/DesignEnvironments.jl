@@ -1,6 +1,8 @@
 module DesignEnvironments
 
-export DesignEnvironments
+export
+    CylinderEnv, action_space, state_space
+    reward, is_terminated, state, reset!
 
 using ReinforcementLearning
 using IntervalSets
