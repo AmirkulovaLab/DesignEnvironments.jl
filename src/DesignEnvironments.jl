@@ -1,6 +1,6 @@
 module DesignEnvironments
 
-export CylinderEnv
+export DesignEnvironments
 
 using ReinforcementLearning
 using IntervalSets
