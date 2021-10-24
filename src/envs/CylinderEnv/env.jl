@@ -92,7 +92,7 @@ end
 
 ## various getters
 get_state(env::CylinderEnv)::Vector = vcat(env.x, env.qV, env.Q, env.timestep/env.params.episode_length)
-get_reward(env::CylinderEnv)::Real = -(env.Q_RMS^2)
+get_reward(env::CylinderEnv)::Real = -env.Q_RMS
 get_done(env::CylinderEnv)::Bool = env.timestep == env.params.episode_length
 
 ## override ReinforcementLearning functions
