@@ -2,7 +2,8 @@ module DesignEnvironments
 
 export
     CylinderEnv, action_space, state_space,
-    reward, is_terminated, state, reset!, TSCS
+    reward, is_terminated, state, reset!, TSCS,
+    get_coords
 
 using ReinforcementLearning
 using IntervalSets
