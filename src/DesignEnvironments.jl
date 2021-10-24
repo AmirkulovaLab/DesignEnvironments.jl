@@ -1,17 +1,12 @@
 module DesignEnvironments
 
-export
-    CylinderEnv, action_space, state_space,
-    reward, is_terminated, state, reset!, TSCS,
-    get_coords
-
 using ReinforcementLearning
 using IntervalSets
 using SpecialFunctions
 using BlockDiagonals
 using LinearAlgebra
+using Plots
 
-include("objective.jl")
-include("env.jl")
+include("envs/envs.jl")
 
 end

@@ -1,3 +1,5 @@
+export TSCS
+
 function TSCS(x::Vector{Float64}, k0amax::Real, k0amin::Real, nfreq::Int)
     ## material properties
     ## properties of water

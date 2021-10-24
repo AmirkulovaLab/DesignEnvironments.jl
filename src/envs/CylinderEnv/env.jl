@@ -1,3 +1,8 @@
+export
+    CylinderEnv, action_space, state_space,
+    reward, is_terminated, state, reset!,
+    get_coords
+
 #=
     immutable struct which holds the static parameters of the cylinder environment
 =#
