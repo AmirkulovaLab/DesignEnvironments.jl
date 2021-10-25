@@ -200,8 +200,11 @@ function (env::CylinderEnv)(action::Union{AbstractArray, Int})
     env.x += action
 
     ## check if new configuration is valid
+
+    penalty = 0
     if !has_valid_x(env)
         env.x = prev_x
+        penalty = -1.0
     end
 
     ## calculate scattering
@@ -209,6 +212,6 @@ function (env::CylinderEnv)(action::Union{AbstractArray, Int})
 
     ## env info
     env.state = get_state(env)
-    env.reward = get_reward(env)
+    env.reward = get_reward(env) + penalty
     env.done = get_done(env)
 end
