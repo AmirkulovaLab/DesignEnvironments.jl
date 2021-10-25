@@ -28,11 +28,13 @@ function render(
         path::String="anim.mp4", fps::Int=30
         )
 
+    reset!(env)
+
     a = Animation()
 
     while !is_terminated(env)
-        env(policy(env))
         frame(a, img(env))
+        env(policy(env))
     end
 
     gif(a, path, fps=fps)
