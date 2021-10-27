@@ -28,12 +28,27 @@ function render(
         path::String="anim.mp4", fps::Int=30
         )
 
+    k0amin = env.params.k0amin
+    k0amax = env.params.k0amax
+    nfreq = env.params.nfreq
+
+    dif = (k0amax - k0amin) / nfreq
+    freqv = range(k0amin, k0amax, length=nfreq) |> collect
+
     reset!(env)
 
     a = Animation()
 
     while !is_terminated(env)
-        frame(a, img(env))
+
+        p = plot(
+            img(env),
+            plot(freqv, env.Q, xlabel="ka", ylabel="TSCS", legend=false),
+            layout=(1, 2),
+            legend=false
+            )
+
+        frame(a, p)
         env(policy(env))
     end
 
