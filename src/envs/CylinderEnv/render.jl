@@ -25,8 +25,11 @@ end
 
 function render(
         env::CylinderEnv, policy::AbstractPolicy;
-        path::String="anim.mp4", fps::Int=30
+        max_tscs::Float64=5.0, path::String="anim.mp4",
+        fps::Int=30
         )
+
+    reset!(env)
 
     k0amin = env.params.k0amin
     k0amax = env.params.k0amax
@@ -35,22 +38,26 @@ function render(
     dif = (k0amax - k0amin) / nfreq
     freqv = range(k0amin, k0amax, length=nfreq) |> collect
 
-    reset!(env)
-
     a = Animation()
 
     while !is_terminated(env)
+        plot_1 = img(env)
+        plot_2 = plot(
+            freqv, env.Q,
+            xlabel="ka", ylabel="TSCS",
+            xlim=(freqv[1], freqv[end]),
+            ylim=(0, max_tscs))
 
-        p = plot(
-            img(env),
-            plot(freqv, env.Q, xlabel="ka", ylabel="TSCS", legend=false),
-            layout=(1, 2),
-            legend=false
+        big_plot = plot(
+            plot_1,
+            plot_2,
+            layout=@layout([a{0.6w} b]),
             )
 
-        frame(a, p)
+        frame(a, big_plot)
         env(policy(env))
     end
 
     gif(a, path, fps=fps)
+    closeall()
 end
