@@ -58,16 +58,27 @@ function CylinderEnv(;
         M, k0amax, k0amin, nfreq, episode_length, step_size, grid_size, continuous
         )
 
+    ## the dimention of the design vector (x) is double the number of cylinders
     x_dim = 2 * params.M
 
     if continuous
+        ## in the case of continuous actions the actino space will be a vector
         action_space = Space([
             ClosedInterval(-params.step_size, params.step_size) for _ in Base.OneTo(x_dim)
             ])
     else
+        ## in the case of discrete actions it will be an integer within a range.
         action_space = Base.OneTo(4 * params.M)
     end
 
+    #=
+        assuming the state of the environment will be represented as a vector the
+        content of that vector will be:
+            - design vector (x)
+            - gradient of design vector (x)
+            - Q vector (TSCS at each ka)
+            - single float representing the current timestep
+    =#
     state_dim = 2 * x_dim + params.nfreq + 1
     state_space = Space([ClosedInterval(-Inf, Inf) for _ in Base.OneTo(state_dim)])
 
@@ -116,14 +127,20 @@ function has_valid_x(env::CylinderEnv)::Bool
     overlap = false
 
     coords = get_coords(env)
+
+    ## first check if all coordinates (x and y) are within the bounds of the grid
     if all(abs.(coords) .< env.params.grid_size)
         within_bounds = true
+
         for i = 1 : env.params.M
             for j = 1 : env.params.M
                 if i != j
+
+                    ## find the distance between cylinder i and j given that they are not the same
                     x1, y1 = coords[i, :]
                     x2, y2 = coords[j, :]
                     d = sqrt((x2 - x1)^2 + (y2 - y1)^2)
+
                     if d <= 2.1
                         overlap = true
                     end
@@ -141,7 +158,9 @@ end
 =#
 function generate_valid_x(env::CylinderEnv)
     while true
+        ## this generates a random vector of coordinates inside the grid which may ovelap
         env.x = (2 * env.params.grid_size) .* (rand(Float64, 2 * env.params.M) .- 0.5)
+        ## if these coordinates happen to not overlap then we have succesfully generated a valid x
         !has_valid_x(env) || break
     end
 end
@@ -171,16 +190,27 @@ function RLBase.reset!(env::CylinderEnv)
     env.done = false
 end
 
+#=
+    the purpose of this function is to convert a discrete integer action into
+    its equivelant continuous action. each discrete action is capable of moving
+    one cylinder in one cardinal direction by a fixed amount.
+=#
 function continuous_action(env::CylinderEnv, action::Int)
+    ## decrement action so that action numbering starts at 0 (instead of 1)
     action -= 1
 
     action_matrix = zeros(env.params.M, 2)
+    ## getting the cylinder that the current action is adjusting
     cyl = Int(floor(action / 4)) + 1
+    ## finding the direction in which that adjustment is being made
     direction = action % 4
+    ## finding out if the adjustment is to the x or y axis of cylinder
     axis = (direction % 2) + 1
+    ## finding out which direction on the given axis
     sign = Int(floor(direction / 2))
-
+    ## setting the appropriate cylinder and axis equal to the adjustment
     action_matrix[cyl, axis] = (-1)^sign * env.params.step_size
+    ## flattening the action into a vector
     return reshape(transpose(action_matrix), length(action_matrix))
 end
 
@@ -190,6 +220,7 @@ end
 function (env::CylinderEnv)(action::Union{AbstractArray, Int})
     env.timestep += 1
 
+    ## obtain a deep reference to the current configuration of cylinders
     prev_x = deepcopy(env.x)
 
     if !env.params.continuous
@@ -197,13 +228,15 @@ function (env::CylinderEnv)(action::Union{AbstractArray, Int})
         action = continuous_action(env, action)
     end
 
+    ## applying action to configuration
     env.x += action
 
     ## check if new configuration is valid
-
     penalty = 0
     if !has_valid_x(env)
+        ## setting the current configuration to the last valid one
         env.x = prev_x
+        ## we want to penalize illegal actions
         penalty = -1.0
     end
 

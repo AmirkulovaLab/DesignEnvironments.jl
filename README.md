@@ -2,7 +2,7 @@
 
 ## Example of optimal control
 
-<p>This is an example of an agent interacting with the CylinderEnv</p>
+<p>This is an example of an agent interacting with the CylinderEnv. We can see that the agent is able to supress the TSCS across a range of wavenumbers.</p>
 
 <p align="center">
 <img src="https://github.com/AmirkulovaLab/DesignEnvironments.jl/blob/main/images/anim.gif" width="600">

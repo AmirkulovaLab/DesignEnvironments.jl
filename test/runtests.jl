@@ -1,7 +1,11 @@
 using DesignEnvironments
-using Test
+using ReinforcementLearning
+ENV["GKSwstype"] = "nul"
 
 @testset "DesignEnvironments" begin
-    env = CylinderEnv(M=3)
-    display(env)
+    env = CylinderEnv(M=10, continuous=true, grid_size=10.0)
+    policy = RandomPolicy(action_space(env))
+
+    render(env, policy, path="thing.mp4")
+
 end
