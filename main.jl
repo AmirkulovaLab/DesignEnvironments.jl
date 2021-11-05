@@ -1,48 +1,40 @@
 using DesignEnvironments
 using ReinforcementLearning
 # ENV["GKSwstype"] = "nul"
-using Flux
+import Flux
 
-struct GraphEmb
-    emb::Matrix
+env = CylinderEnv(M=10, continuous=true, grid_size=10.0)
+
+traj = CircularArraySARTTrajectory(
+    capacity = 1000,
+    # state = Matrix{Float64} => (env.params.M, 2),
+    state = Tuple{Matrix{Float64}, Vector{Float64}} => (2,),
+    action = Vector{Float64} => size(action_space(env))
+    )
+
+sampler = NStepBatchSampler{SARTS}(;
+        γ = 0.9,
+        n = 1,
+        stack_size = nothing,
+        batch_size = 10,
+    )
+# cat(coords..., dims=3)
+
+policy = RandomPolicy(action_space(env))
+
+reset!(env)
+while !is_terminated(env)
+
+    action = policy(env)
+    state = (get_coords(env), env.Q)
+    push!(traj; state=state, action=action)
+    env(action)
+
+    state = (get_coords(env), env.Q)
+    push!(
+        traj;
+        reward=reward(env),
+        state=state,
+        terminal=is_terminated(env)
+        )
 end
-
-function GraphEmb(emb_dim::Int, graph_dim::Int)
-    emb = randn(graph_dim, emb_dim)
-    return GraphEmb(emb)
-end
-
-Flux.@functor GraphEmb
-
-function (m::GraphEmb)(x)
-    emb = m.emb
-
-    x = batched_mul(x, emb)
-    x = sum(x, dims=3)
-    x = relu.(x)
-    return x
-end
-
-emb = GraphEmb(10, 2)
-x = randn(20, 2, 5)
-
-display(size(emb(x)))
-
-# display(Threads.nthreads())
-#
-# env = CylinderEnv(M=10, continuous=true, grid_size=10.0)
-#
-# min_M = 3
-# max_M = 10
-#
-# envs = Vector{CylinderEnv}(undef, 100)
-#
-# @time begin
-#     Threads.@threads for i = 1 : length(envs)
-#         envs[i] = CylinderEnv(M=rand(min_M:max_M), continuous=false, grid_size=10.0)
-#     end
-#
-#     Threads.@threads for i = 1 : length(envs)
-#         reset!(envs[i])
-#     end
-# end
