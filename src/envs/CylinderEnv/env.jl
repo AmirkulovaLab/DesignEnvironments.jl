@@ -50,12 +50,14 @@ function CylinderEnv(;
     episode_length::Int = 100,
     step_size::Real = 0.5,
     grid_size::Real = 5.0,
-    continuous::Bool = true
+    continuous::Bool = true,
     )
 
     ## setting static params
     params = CylinderEnvParams(
-        M, k0amax, k0amin, nfreq, episode_length, step_size, grid_size, continuous
+        M, k0amax, k0amin, nfreq,
+        episode_length, step_size,
+        grid_size, continuous
         )
 
     ## the dimention of the design vector (x) is double the number of cylinders

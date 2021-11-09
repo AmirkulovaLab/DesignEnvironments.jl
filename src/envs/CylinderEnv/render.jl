@@ -16,13 +16,16 @@ function img(env::CylinderEnv)
     ## create a vector of cylinder objects
     cylinders = cylinder.(x, y)
 
+    ## bounds
+    bounds = env.params.grid_size + 1
+
     p = plot(
         cylinders;
         aspect_ratio=:equal,
         legend=false,
         color=:black,
-        xlim=(-env.params.grid_size, env.params.grid_size),
-        ylim=(-env.params.grid_size, env.params.grid_size)
+        xlim=(-bounds, bounds),
+        ylim=(-bounds, bounds)
         )
 
     return p
