@@ -12,6 +12,7 @@ mutable struct CylinderEnv <: DesignEnv
     step_size::Float64
     grid_size::Float64
     min_distance::Float64
+    max_velocity::Float64
     continuous::Bool
     physics::Bool
 
@@ -42,6 +43,7 @@ function CylinderEnv(;
         step_size::Float64 = 0.5,
         grid_size::Float64 = 5.0,
         min_distance::Float64 = 0.1,
+        max_velocity::Float64 = 0.3,
         continuous::Bool = true,
         physics::Bool = true
         )
@@ -81,7 +83,7 @@ function CylinderEnv(;
     env = CylinderEnv(
         M, k0amax, k0amin, nfreq, episode_length,
         step_size, grid_size, min_distance,
-        continuous, physics,
+        max_velocity, continuous, physics,
         action_space, state_space, timestep,
         coords, velocity, radii, Q_RMS, qV, Q, penalty)
 
@@ -249,17 +251,27 @@ function (env::CylinderEnv)(action)
         action = x_to_coords(action)
     end
 
-    ## applying action to configuration
-    env.coords += action
+    if env.physics
+        env.velocity += action
+        clamp!(env.velocity, -env.max_velocity, env.max_velocity)
+        env.coords += env.velocity
 
-    ## check if new configuration is valid
-    env.penalty = 0.0
-    if !has_valid_coords(env)
-        ## setting the current configuration to the last valid one
-        env.coords = prev_coords
-        ## we want to penalize illegal actions
-        env.penalty = -1.0
+        resolve_wall_collisions(env)
+        resolve_cylinder_collisions(env)
+    else
+        ## applying action to configuration
+        env.coords += action
+
+        ## check if new configuration is valid
+        env.penalty = 0.0
+        if !has_valid_coords(env)
+            ## setting the current configuration to the last valid one
+            env.coords = prev_coords
+            ## we want to penalize illegal actions
+            env.penalty = -1.0
+        end
     end
+
 
     ## calculate scattering
     calculate_objective(env)
@@ -273,14 +285,14 @@ function resolve_wall_collisions(env::CylinderEnv)
 
     env.coords[left_collision, 1] .= - center_bound[left_collision]
     env.coords[right_collision, 1] .= center_bound[right_collision]
-    env.vel[left_collision .| right_collision, 1] *= - 1
+    env.velocity[left_collision .| right_collision, 1] *= - 1
 
     top_collision = env.coords[:, 2] .> center_bound
     bottom_collision = env.coords[:, 2] .< - center_bound
 
     env.coords[top_collision, 2] .= center_bound[top_collision]
     env.coords[bottom_collision, 2] .= - center_bound[bottom_collision]
-    env.vel[top_collision .| bottom_collision, 2] *= -1
+    env.velocity[top_collision .| bottom_collision, 2] *= -1
 end
 
 
@@ -289,8 +301,8 @@ function resolve_cylinder_collisions(env::CylinderEnv)
     ## getting position and velocity of colliding cylinders
     i_pos = env.coords[collisions[:, 1], :]
     j_pos = env.coords[collisions[:, 2], :]
-    i_vel = env.vel[collisions[:, 1], :]
-    j_vel = env.vel[collisions[:, 2], :]
+    i_vel = env.velocity[collisions[:, 1], :]
+    j_vel = env.velocity[collisions[:, 2], :]
 
     ## updating velocity of cylinder i
     C_pos = i_pos - j_pos
@@ -298,7 +310,7 @@ function resolve_cylinder_collisions(env::CylinderEnv)
     inner_prod = sum(C_vel .* C_pos, dims=2)
     C_pos_norm = C_pos[:, 1].^2 + C_pos[:, 2].^2
     coef = inner_prod ./ C_pos_norm
-    env.vel[collisions[:, 1], :] .-= coef .* C_pos
+    env.velocity[collisions[:, 1], :] .-= coef .* C_pos
 
     ## updating velocity of cylinder j
     C_pos = j_pos - i_pos
@@ -306,7 +318,7 @@ function resolve_cylinder_collisions(env::CylinderEnv)
     inner_prod = sum(C_vel .* C_pos, dims=2)
     C_pos_norm = C_pos[:, 1].^2 + C_pos[:, 2].^2
     coef = inner_prod ./ C_pos_norm
-    env.vel[collisions[:, 2], :] .-= coef .* C_pos
+    env.velocity[collisions[:, 2], :] .-= coef .* C_pos
 
     ## Preventing overlaps
     angle = atan.(C_pos[:, 2], C_pos[:, 1])
@@ -315,10 +327,10 @@ function resolve_cylinder_collisions(env::CylinderEnv)
     boundry = (2 .* env.radii .+ env.min_distance) ./ 2
 
     ## Updating x and y coordinates of cylinder i
-    env.config[collisions[:, 1], 1] = midpoint[:, 1] - (cos.(angle) .* boundry[collisions[:, 1]])
-    env.config[collisions[:, 1], 2] = midpoint[:, 2] - (sin.(angle) .* boundry[collisions[:, 1]])
+    env.coords[collisions[:, 1], 1] = midpoint[:, 1] - (cos.(angle) .* boundry[collisions[:, 1]])
+    env.coords[collisions[:, 1], 2] = midpoint[:, 2] - (sin.(angle) .* boundry[collisions[:, 1]])
 
     ## Updating x and y coordinates of cylinder j
-    env.config[collisions[:, 2], 1] = midpoint[:, 0] + (cos.(angle) .* boundry[collisions[:, 2]])
-    env.config[collisions[:, 2], 2] = midpoint[:, 1] + (sin.(angle) .* boundry[collisions[:, 2]])
+    env.coords[collisions[:, 2], 1] = midpoint[:, 1] + (cos.(angle) .* boundry[collisions[:, 2]])
+    env.coords[collisions[:, 2], 2] = midpoint[:, 2] + (sin.(angle) .* boundry[collisions[:, 2]])
 end
