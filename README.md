@@ -1,5 +1,3 @@
-# DesignEnvironments.jl
-
 ```
                        _        _            _                      _             _     
      /\               (_)      | |          | |                    | |           | |    
@@ -7,7 +5,9 @@
    / /\ \  | '_ ` _ \ | || '__|| |/ /| | | || | / _ \\ \ / // _` | | |     / _` || '_ \
   / ____ \ | | | | | || || |   |   < | |_| || || (_) |\ V /| (_| | | |____| (_| || |_) |
  /_/    \_\|_| |_| |_||_||_|   |_|\_\ \__,_||_| \___/  \_/  \__,_| |______|\__,_||_.__/
-```                                                                                    
+```
+# DesignEnvironments.jl
+
 ## Demo
 <p align="center">
 <img src="https://github.com/AmirkulovaLab/DesignEnvironments.jl/blob/main/images/physics.gif" width="600">
