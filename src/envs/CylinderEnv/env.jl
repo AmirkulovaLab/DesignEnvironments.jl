@@ -1,4 +1,4 @@
-export CylinderEnv, action_space, state_space,
+export CylinderEnv, action_space, state_space, img
 
 mutable struct CylinderEnv <: DesignEnv
     ## static params
