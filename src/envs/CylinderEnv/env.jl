@@ -10,7 +10,7 @@ mutable struct CylinderEnv <: DesignEnv
     step_size::Float64
     grid_size::Float64
     min_distance::Float64
-    max_velocity::Float64
+    velocity_decay::Float64
     continuous::Bool
     physics::Bool
 
@@ -41,7 +41,7 @@ function CylinderEnv(;
         step_size::Float64 = 0.5,
         grid_size::Float64 = 5.0,
         min_distance::Float64 = 0.1,
-        max_velocity::Float64 = 0.3,
+        velocity_decay::Float64=0.9,
         continuous::Bool = true,
         physics::Bool = true
         )
@@ -81,7 +81,7 @@ function CylinderEnv(;
     env = CylinderEnv(
         M, k0amax, k0amin, nfreq, episode_length,
         step_size, grid_size, min_distance,
-        max_velocity, continuous, physics,
+        velocity_decay, continuous, physics,
         action_space, state_space, timestep,
         coords, velocity, radii, Q_RMS, qV, Q, penalty)
 
@@ -89,12 +89,26 @@ function CylinderEnv(;
     return env
 end
 
-reward(env::CylinderEnv) = - env.Q_RMS + env.penalty
-is_terminated(env::CylinderEnv) = env.timestep == env.episode_length
+
+function reward(env::CylinderEnv)
+    return - env.Q_RMS + env.penalty
+end
+
+function is_terminated(env::CylinderEnv)
+    return env.timestep == env.episode_length
+end
 
 function state(env::CylinderEnv)
-    x = coords_to_x(env.coords)
-    return vcat(x, env.qV, env.Q, env.timestep/env.episode_length)
+    coords = coords_to_x(env.coords)
+
+    if physics
+        velocity = coords_to_x(env.velocity)
+        s = vcat(coords, velocity)
+    else
+        s = coords
+    end
+
+    return vcat(s, env.qV, env.Q, env.timestep/env.episode_length)
 end
 
 function reset!(env::CylinderEnv)
@@ -249,24 +263,30 @@ function (env::CylinderEnv)(action)
         action = x_to_coords(action)
     end
 
+    env.penalty = 0.0
+
     if env.physics
+        env.velocity *= env.velocity_decay
         env.velocity += action
-        clamp!(env.velocity, -env.max_velocity, env.max_velocity)
+        clamp!(env.velocity, -env.step_size, env.step_size)
         env.coords += env.velocity
 
         resolve_wall_collisions(env)
-        resolve_cylinder_collisions(env)
+
+        collisions = get_collisions(env)
+        resolve_cylinder_collisions(env, collisions)
+
+        env.penalty += - size(collisions, 1)
     else
         ## applying action to configuration
         env.coords += action
 
         ## check if new configuration is valid
-        env.penalty = 0.0
         if !has_valid_coords(env)
             ## setting the current configuration to the last valid one
             env.coords = prev_coords
             ## we want to penalize illegal actions
-            env.penalty = -1.0
+            env.penalty += -1.0
         end
     end
 
@@ -294,8 +314,7 @@ function resolve_wall_collisions(env::CylinderEnv)
 end
 
 
-function resolve_cylinder_collisions(env::CylinderEnv)
-    collisions = get_collisions(env)
+function resolve_cylinder_collisions(env::CylinderEnv, collisions::Matrix)
     ## getting position and velocity of colliding cylinders
     i_pos = env.coords[collisions[:, 1], :]
     j_pos = env.coords[collisions[:, 2], :]
