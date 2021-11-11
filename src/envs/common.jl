@@ -24,8 +24,11 @@ function render(
     freqv = range(env.k0amin, env.k0amax, length=env.nfreq) |> collect
 
     a = Animation()
+    prog = ProgressUnknown("Working hard:", spinner=true)
 
     while !is_terminated(env)
+        ProgressMeter.next!(prog)
+
         ## this plot is the image which displays the current state of the environment
         plot_1 = img(env)
 
@@ -49,7 +52,8 @@ function render(
         ## apply the policy's action to the environment
         env(policy(env))
     end
-
+    ProgressMeter.finish!(prog)
+    
     ## convert collections of images into gif
     gif(a, path, fps=fps)
     closeall()
