@@ -1,6 +1,13 @@
 # DesignEnvironments.jl
 
-## Example of optimal control
+                       _        _            _                      _             _     
+     /\               (_)      | |          | |                    | |           | |    
+    /  \    _ __ ___   _  _ __ | | __ _   _ | |  ___ __   __ __ _  | |      __ _ | |__  
+   / /\ \  | '_ ` _ \ | || '__|| |/ /| | | || | / _ \\ \ / // _` | | |     / _` || '_ \
+  / ____ \ | | | | | || || |   |   < | |_| || || (_) |\ V /| (_| | | |____| (_| || |_) |
+ /_/    \_\|_| |_| |_||_||_|   |_|\_\ \__,_||_| \___/  \_/  \__,_| |______|\__,_||_.__/
+                                                                                        
+## Demo
 <p align="center">
 <img src="https://github.com/AmirkulovaLab/DesignEnvironments.jl/blob/main/images/physics.gif" width="600">
 </p>
