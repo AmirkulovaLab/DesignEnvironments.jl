@@ -6,10 +6,10 @@ abstract type DesignEnv <: AbstractEnv end
 RLBase.action_space(env::DesignEnv) = env.action_space
 RLBase.state_space(env::DesignEnv) = env.state_space
 
-RLBase.reward(env::DesignEnv) = reward(env)
-RLBase.is_terminated(env::DesignEnv) = is_terminated(env)
-RLBase.state(env::DesignEnv) = state(env)
-RLBase.reset!(env::DesignEnv) = reset!(env)
+RLBase.reward(env::DesignEnv) = DE.reward(env)
+RLBase.is_terminated(env::DesignEnv) = DE.is_terminated(env)
+RLBase.state(env::DesignEnv) = DE.state(env)
+RLBase.reset!(env::DesignEnv) = DE.reset!(env)
 (env::DesignEnv)(action) = env(action)
 
 function render(
@@ -53,7 +53,7 @@ function render(
         env(policy(env))
     end
     ProgressMeter.finish!(prog)
-    
+
     ## convert collections of images into gif
     gif(a, path, fps=fps)
     closeall()

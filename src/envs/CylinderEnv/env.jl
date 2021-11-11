@@ -91,7 +91,7 @@ function CylinderEnv(;
     return env
 end
 
-reward(env::CylinderEnv) = - env.Q_RMS + penalty
+reward(env::CylinderEnv) = - env.Q_RMS + env.penalty
 is_terminated(env::CylinderEnv) = env.timestep == env.episode_length
 
 function state(env::CylinderEnv)
