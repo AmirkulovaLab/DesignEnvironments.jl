@@ -101,7 +101,7 @@ end
 function state(env::CylinderEnv)
     coords = coords_to_x(env.coords)
 
-    if physics
+    if env.physics
         velocity = coords_to_x(env.velocity)
         s = vcat(coords, velocity)
     else

@@ -10,6 +10,7 @@ env = CylinderEnv(
     continuous=false,
     step_size=0.1,
     nfreq=30,
+    velocity_decay=0.1,
     physics=true)
 
 policy = RandomPolicy(action_space(env))
