@@ -16,7 +16,7 @@ function img(env::CylinderEnv)
     ## create a vector of cylinder objects
     cylinders = cylinder.(x, y)
 
-    ## bounds
+    ## get bounds of grid
     bounds = env.params.grid_size + 1
 
     p = plot(
@@ -39,22 +39,27 @@ function render(
 
     reset!(env)
 
-    k0amin = env.params.k0amin
-    k0amax = env.params.k0amax
-    nfreq = env.params.nfreq
+    params = get_params(env)
+
+    k0amin = params.k0amin
+    k0amax = params.k0amax
+    nfreq = params.nfreq
 
     dif = (k0amax - k0amin) / nfreq
     freqv = range(k0amin, k0amax, length=nfreq) |> collect
 
     a = Animation()
+    prog = ProgressUnknown("Generating animation:", spinner=true)
 
     while !is_terminated(env)
+        ProgressMeter.next!(prog)
+
         ## this plot is the image which displays the current state of the environment
         plot_1 = img(env)
 
         ## this plot shows the scattering pattern (TSCS) produced by the current configuration
         plot_2 = plot(
-            freqv, env.Q,
+            freqv, get_Q(env),
             xlabel="ka", ylabel="TSCS",
             xlim=(freqv[1], freqv[end]),
             ylim=(0, max_tscs))
@@ -72,6 +77,7 @@ function render(
         ## apply the policy's action to the environment
         env(policy(env))
     end
+    ProgressMeter.finish!(prog)
 
     ## convert collections of images into gif
     gif(a, path, fps=fps)

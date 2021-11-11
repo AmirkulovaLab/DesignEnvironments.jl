@@ -1,76 +1,60 @@
 export
     CylinderEnv, action_space, state_space,
-    reward, is_terminated, state, reset!,
-    get_coords
+    reward, is_terminated, state, reset!, img
 
-#=
-    immutable struct which holds the static parameters of the cylinder environment
-=#
-struct CylinderEnvParams
+mutable struct CylinderEnv <: DesignEnv
+    ## static params
     M::Int
-    k0amax::Real
-    k0amin::Real
+    k0amax::Float64
+    k0amin::Float64
     nfreq::Int
     episode_length::Int
-    step_size::Real
-    grid_size::Real
+    step_size::Float64
+    grid_size::Float64
+    min_distance::Float64
     continuous::Bool
-end
-
-#=
-    this struct holds the dynamic information which describes the state of the
-    environment.
-=#
-mutable struct CylinderEnv <: AbstractEnv
-    ## static params
-    params::CylinderEnvParams
+    physics::Bool
 
     ## spaces
     action_space::Union{Space, Base.OneTo{Int64}}
     state_space::Space
 
     ## misc
-    state::Vector
-    reward::Real
-    done::Bool
     timestep::Int
 
     ## placeholder values for design params
-    x::Vector{Float64}
-    Q_RMS::Real
+    coords::Matrix{Float64}
+    velocity::Matrix{Float64}
+    radii::Vector{Float64}
+    Q_RMS::Float64
     qV::Vector{Float64}
     Q::Vector{Float64}
+    penalty::Float64
 end
 
 function CylinderEnv(;
-    M::Int = 1,
-    k0amax::Real = 0.5,
-    k0amin::Real = 0.3,
-    nfreq::Int = 10,
-    episode_length::Int = 100,
-    step_size::Real = 0.5,
-    grid_size::Real = 5.0,
-    continuous::Bool = true,
-    )
-
-    ## setting static params
-    params = CylinderEnvParams(
-        M, k0amax, k0amin, nfreq,
-        episode_length, step_size,
-        grid_size, continuous
+        M::Int = 1,
+        radius::Float64 = 1.0,
+        k0amax::Float64 = 0.5,
+        k0amin::Float64 = 0.3,
+        nfreq::Int = 10,
+        episode_length::Int = 100,
+        step_size::Float64 = 0.5,
+        grid_size::Float64 = 5.0,
+        min_distance::Float64 = 0.1,
+        continuous::Bool = true,
+        physics::Bool = true
         )
 
     ## the dimention of the design vector (x) is double the number of cylinders
-    x_dim = 2 * params.M
+    x_dim = 2 * M
 
     if continuous
         ## in the case of continuous actions the actino space will be a vector
-        action_space = Space([
-            ClosedInterval(-params.step_size, params.step_size) for _ in Base.OneTo(x_dim)
-            ])
+        action_space = Space([-step_size..step_size for _ in Base.OneTo(x_dim)])
     else
         ## in the case of discrete actions it will be an integer within a range.
-        action_space = Base.OneTo(4 * params.M)
+        action_space = Base.OneTo(4 * M)
     end
 
     #=
@@ -81,115 +65,62 @@ function CylinderEnv(;
             - Q vector (TSCS at each ka)
             - single float representing the current timestep
     =#
-    state_dim = 2 * x_dim + params.nfreq + 1
-    state_space = Space([ClosedInterval(-Inf, Inf) for _ in Base.OneTo(state_dim)])
+    state_dim = 2 * x_dim + nfreq + 1
+    state_space = Space([-Inf..Inf for _ in Base.OneTo(state_dim)])
+
+    timestep = 0
+    coords = zeros(M, 2)
+    velocity = zeros(M, 2)
+    radii = ones(M) .* radius
+    Q_RMS = 0.0
+    qV = zeros(x_dim)
+    Q = zeros(nfreq)
+    penalty = 0.0
 
     ## creating env
     env = CylinderEnv(
-        params,
-        action_space,
-        state_space,
-        zeros(state_dim), ## state
-        0.0, ## reward
-        false, ## done
-        0, ## timestep
-        zeros(x_dim), ## x (design params)
-        0.0, ## Q_RMS
-        zeros(x_dim), ## qV (gradient)
-        zeros(params.nfreq) ## Q (TSCS across nfreq)
-        )
+        M, k0amax, k0amin, nfreq, episode_length,
+        step_size, grid_size, min_distance,
+        continuous, physics,
+        action_space, state_space, timestep,
+        coords, velocity, radii, Q_RMS, qV, Q, penalty)
 
     reset!(env)
     return env
 end
 
-## various getters
-get_state(env::CylinderEnv)::Vector = vcat(env.x, env.qV, env.Q, env.timestep/env.params.episode_length)
-get_reward(env::CylinderEnv)::Real = -env.Q_RMS
-get_done(env::CylinderEnv)::Bool = env.timestep == env.params.episode_length
+reward(env::CylinderEnv) = - env.Q_RMS + penalty
+is_terminated(env::CylinderEnv) = env.timestep == env.episode_length
 
-## override ReinforcementLearning functions
-RLBase.action_space(env::CylinderEnv) = env.action_space
-RLBase.state_space(env::CylinderEnv) = env.state_space
-RLBase.reward(env::CylinderEnv) = env.reward
-RLBase.is_terminated(env::CylinderEnv) = env.done
-RLBase.state(env::CylinderEnv) = get_state(env)
-
-#=
-    converts the current vector form of the design parameters into a matrix containing
-    the coordinates of the cylinders within the grid
-=#
-get_coords(env::CylinderEnv)::Matrix = transpose(reshape(env.x, 2, env.params.M))
-
-#=
-    determines if the current configuration of design parameters is valid.
-=#
-function has_valid_x(env::CylinderEnv)::Bool
-    within_bounds = false
-    overlap = false
-
-    coords = get_coords(env)
-
-    ## first check if all coordinates (x and y) are within the bounds of the grid
-    if all(abs.(coords) .< env.params.grid_size)
-        within_bounds = true
-
-        for i = 1 : env.params.M
-            for j = 1 : env.params.M
-                if i != j
-
-                    ## find the distance between cylinder i and j given that they are not the same
-                    x1, y1 = coords[i, :]
-                    x2, y2 = coords[j, :]
-                    d = sqrt((x2 - x1)^2 + (y2 - y1)^2)
-
-                    if d <= 2.1
-                        overlap = true
-                    end
-                end
-            end
-        end
-    end
-
-    return within_bounds & !overlap
+function state(env::CylinderEnv)
+    x = coords_to_x(env.coords)
+    return vcat(x, env.qV, env.Q, env.timestep/env.episode_length)
 end
 
-#=
-    generates a random uniform configuration of design parameters within the grid
-    until a valid one is encountered.
-=#
-function generate_valid_x(env::CylinderEnv)
+function reset!(env::CylinderEnv)
+    env.timestep = 0
+
+    #=
+        generates a random uniform configuration of design parameters within the grid
+        until a valid one is encountered.
+    =#
     while true
-        ## this generates a random vector of coordinates inside the grid which may ovelap
-        env.x = (2 * env.params.grid_size) .* (rand(Float64, 2 * env.params.M) .- 0.5)
-        ## if these coordinates happen to not overlap then we have succesfully generated a valid x
-        !has_valid_x(env) || break
+        env.coords = (2 * env.grid_size) .* (rand(Float64, env.M, 2) .- 0.5)
+
+        !has_valid_coords(env) || break
     end
+
+    calculate_objective(env)
 end
 
+coords_to_x(coords::Matrix{Float64})::Vector{Float64} = reshape(coords', length(coords))
+x_to_coords(x::Vector{Float64})::Matrix{Float64} = reshape(x, 2, Int(length(x)/2))'
 #=
     calls the objective function on the current configuration
 =#
 function calculate_objective(env::CylinderEnv)
-    env.Q_RMS, env.qV, env.Q = TSCS(env.x, env.params.k0amax, env.params.k0amin, env.params.nfreq)
-end
-
-#=
-    resets environment to random starting design
-=#
-function RLBase.reset!(env::CylinderEnv)
-    env.timestep = 0
-
-    ## generate new design parameters
-    generate_valid_x(env)
-
-    ## calculate scattering
-    calculate_objective(env)
-
-    ## set env info
-    env.state = get_state(env)
-    env.reward = get_reward(env)
-    env.done = false
+    x = coords_to_x(env.coords)
+    env.Q_RMS, env.qV, env.Q = TSCS(x, env.k0amax, env.k0amin, env.nfreq)
 end
 
 #=
@@ -201,7 +132,7 @@ function continuous_action(env::CylinderEnv, action::Int)
     ## decrement action so that action numbering starts at 0 (instead of 1)
     action -= 1
 
-    action_matrix = zeros(env.params.M, 2)
+    action_matrix = zeros(env.M, 2)
     ## getting the cylinder that the current action is adjusting
     cyl = Int(floor(action / 4)) + 1
     ## finding the direction in which that adjustment is being made
@@ -211,42 +142,183 @@ function continuous_action(env::CylinderEnv, action::Int)
     ## finding out which direction on the given axis
     sign = Int(floor(direction / 2))
     ## setting the appropriate cylinder and axis equal to the adjustment
-    action_matrix[cyl, axis] = (-1)^sign * env.params.step_size
+    action_matrix[cyl, axis] = (-1)^sign * env.step_size
     ## flattening the action into a vector
-    return reshape(transpose(action_matrix), length(action_matrix))
+    # return coords_to_x(action_matrix)
+    return action_matrix
+end
+
+#=
+    generates a cylindrical shape at specific coordinates with given radius
+=#
+function cylinder(x, y, r=1; n=30)
+    θ = 0:360÷n:360
+    Plots.Shape(r*sind.(θ) .+ x, r*cosd.(θ) .+ y)
+end
+
+function get_collisions(env::CylinderEnv)
+    ## cartisian product to compare each cylinder to one another
+    M = env.M
+
+    idx = 1:M |> collect
+    i_idx, j_idx = repeat(idx, outer=M), repeat(idx, inner=M)
+
+    ## outer and inner loop index
+    coords = env.coords
+    i_coords, j_coords = coords[i_idx, :], coords[j_idx, :]
+
+    ## splitting into coordinates
+    x1, y1, x2, y2 = i_coords[:, 1], i_coords[:, 2], j_coords[:, 1], j_coords[:, 2]
+
+    ## calculating distance between each cylinder
+    distances = sqrt.((x2 - x1).^2 + (y2 - y1).^2)
+
+    ## if two cylinders are closer than the min distance it is considered a collision
+    is_collision = (distances .<= (2 + env.min_distance))
+
+    ## we set collision equal to false for comparisons of a cylinder to itself
+    same_cylinder_idx = 1:M+1:M^2
+
+    is_collision[same_cylinder_idx] .= false
+
+    ## cylinder index for the ith and jth colliding cylinders
+    i_cyl, j_cyl = i_idx[is_collision], j_idx[is_collision]
+
+    ## zipping colliding cylinders together [(a, b), (c, d), (e, f), ...]
+    collisions = hcat(i_cyl, j_cyl)
+    collisions = sort(collisions, dims=2)
+    collisions = unique(collisions, dims=1)
+
+    return collisions
+end
+
+function img(env::CylinderEnv)
+
+    coords = env.coords
+    x, y = coords[:, 1], coords[:, 2]
+
+    ## create a vector of cylinder objects
+    cylinders = cylinder.(x, y)
+
+    p = plot(
+        cylinders;
+        aspect_ratio=:equal,
+        legend=false,
+        color=:black,
+        xlim=(-env.grid_size, env.grid_size),
+        ylim=(-env.grid_size, env.grid_size)
+        )
+
+    return p
+end
+
+#=
+    determines if the current configuration of design parameters is valid.
+=#
+function has_valid_coords(env::CylinderEnv)::Bool
+    within_bounds = false
+    overlap = false
+
+    coords = env.coords
+
+    ## first check if all coordinates (x and y) are within the bounds of the grid
+    ## radius assumed at 1
+    if all(abs.(coords) .< env.grid_size - 1)
+        within_bounds = true
+        if size(get_collisions(env), 1) > 0
+            overlap = true
+        end
+    end
+
+    return within_bounds & !overlap
 end
 
 #=
     defines the effect that the action will have on the environment
 =#
-function (env::CylinderEnv)(action::Union{AbstractArray, Int})
+function (env::CylinderEnv)(action)
     env.timestep += 1
 
     ## obtain a deep reference to the current configuration of cylinders
-    prev_x = deepcopy(env.x)
+    prev_coords = deepcopy(env.coords)
 
-    if !env.params.continuous
+    if !env.continuous
         ## convert discrete action into vector
         action = continuous_action(env, action)
+    else
+        action = x_to_coords(action)
     end
 
     ## applying action to configuration
-    env.x += action
+    env.coords += action
 
     ## check if new configuration is valid
-    penalty = 0
-    if !has_valid_x(env)
+    env.penalty = 0.0
+    if !has_valid_coords(env)
         ## setting the current configuration to the last valid one
-        env.x = prev_x
+        env.coords = prev_coords
         ## we want to penalize illegal actions
-        penalty = -1.0
+        env.penalty = -1.0
     end
 
     ## calculate scattering
     calculate_objective(env)
+end
 
-    ## env info
-    env.state = get_state(env)
-    env.reward = get_reward(env) + penalty
-    env.done = get_done(env)
+function resolve_wall_collisions(env::CylinderEnv)
+    center_bound = env.grid_size .- env.radii
+
+    left_collision = env.coords[:, 1] .< - center_bound
+    right_collision = env.coords[:, 1] .> center_bound
+
+    env.coords[left_collision, 1] .= - center_bound[left_collision]
+    env.coords[right_collision, 1] .= center_bound[right_collision]
+    env.vel[left_collision .| right_collision, 1] *= - 1
+
+    top_collision = env.coords[:, 2] .> center_bound
+    bottom_collision = env.coords[:, 2] .< - center_bound
+
+    env.coords[top_collision, 2] .= center_bound[top_collision]
+    env.coords[bottom_collision, 2] .= - center_bound[bottom_collision]
+    env.vel[top_collision .| bottom_collision, 2] *= -1
+end
+
+
+function resolve_cylinder_collisions(env::CylinderEnv)
+    collisions = get_collisions(env)
+    ## getting position and velocity of colliding cylinders
+    i_pos = env.coords[collisions[:, 1], :]
+    j_pos = env.coords[collisions[:, 2], :]
+    i_vel = env.vel[collisions[:, 1], :]
+    j_vel = env.vel[collisions[:, 2], :]
+
+    ## updating velocity of cylinder i
+    C_pos = i_pos - j_pos
+    C_vel = i_vel - j_vel
+    inner_prod = sum(C_vel .* C_pos, dims=2)
+    C_pos_norm = C_pos[:, 1].^2 + C_pos[:, 2].^2
+    coef = inner_prod ./ C_pos_norm
+    env.vel[collisions[:, 1], :] .-= coef .* C_pos
+
+    ## updating velocity of cylinder j
+    C_pos = j_pos - i_pos
+    C_vel = j_vel - i_vel
+    inner_prod = sum(C_vel .* C_pos, dims=2)
+    C_pos_norm = C_pos[:, 1].^2 + C_pos[:, 2].^2
+    coef = inner_prod ./ C_pos_norm
+    env.vel[collisions[:, 2], :] .-= coef .* C_pos
+
+    ## Preventing overlaps
+    angle = atan.(C_pos[:, 2], C_pos[:, 1])
+    midpoint = i_pos + 0.5 * C_pos
+
+    boundry = (2 .* env.radii .+ env.min_distance) ./ 2
+
+    ## Updating x and y coordinates of cylinder i
+    env.config[collisions[:, 1], 1] = midpoint[:, 1] - (cos.(angle) .* boundry[collisions[:, 1]])
+    env.config[collisions[:, 1], 2] = midpoint[:, 2] - (sin.(angle) .* boundry[collisions[:, 1]])
+
+    ## Updating x and y coordinates of cylinder j
+    env.config[collisions[:, 2], 1] = midpoint[:, 0] + (cos.(angle) .* boundry[collisions[:, 2]])
+    env.config[collisions[:, 2], 2] = midpoint[:, 1] + (sin.(angle) .* boundry[collisions[:, 2]])
 end
