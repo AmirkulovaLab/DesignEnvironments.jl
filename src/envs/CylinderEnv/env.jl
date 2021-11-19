@@ -65,7 +65,7 @@ function CylinderEnv(;
             - Q vector (TSCS at each ka)
             - single float representing the current timestep
     =#
-    
+
     ## add extra dimentions for velocity vector if physics
     state_dim = (2 + physics) * x_dim + nfreq + 1
     state_space = Space([-Inf..Inf for _ in Base.OneTo(state_dim)])
@@ -273,12 +273,12 @@ function (env::CylinderEnv)(action)
         clamp!(env.velocity, -env.step_size, env.step_size)
         env.coords += env.velocity
 
-        resolve_wall_collisions(env)
+        wall_collisions = resolve_wall_collisions(env)
 
         collisions = get_collisions(env)
         resolve_cylinder_collisions(env, collisions)
 
-        env.penalty += - size(collisions, 1)
+        env.penalty = - (size(collisions, 1) + sum(wall_collisions))
     else
         ## applying action to configuration
         env.coords += action
@@ -288,7 +288,7 @@ function (env::CylinderEnv)(action)
             ## setting the current configuration to the last valid one
             env.coords = prev_coords
             ## we want to penalize illegal actions
-            env.penalty += -1.0
+            env.penalty = -1.0
         end
     end
 
@@ -313,6 +313,8 @@ function resolve_wall_collisions(env::CylinderEnv)
     env.coords[top_collision, 2] .= center_bound[top_collision]
     env.coords[bottom_collision, 2] .= - center_bound[bottom_collision]
     env.velocity[top_collision .| bottom_collision, 2] *= -1
+
+    return sum(left_collision .+ right_collision .+ top_collision .+ bottom_collision)
 end
 
 
