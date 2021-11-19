@@ -126,6 +126,8 @@ function reset!(env::CylinderEnv)
         !has_valid_coords(env) || break
     end
 
+    env.velocity = zeros(size(env.coords))
+
     calculate_objective(env)
 end
 
