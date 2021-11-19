@@ -314,7 +314,7 @@ function resolve_wall_collisions(env::CylinderEnv)
     env.coords[bottom_collision, 2] .= - center_bound[bottom_collision]
     env.velocity[top_collision .| bottom_collision, 2] *= -1
 
-    return sum(left_collision .+ right_collision .+ top_collision .+ bottom_collision)
+    return left_collision .+ right_collision .+ top_collision .+ bottom_collision
 end
 
 
