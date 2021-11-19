@@ -65,7 +65,9 @@ function CylinderEnv(;
             - Q vector (TSCS at each ka)
             - single float representing the current timestep
     =#
-    state_dim = 2 * x_dim + nfreq + 1
+    
+    ## add extra dimentions for velocity vector if physics
+    state_dim = (2 + physics) * x_dim + nfreq + 1
     state_space = Space([-Inf..Inf for _ in Base.OneTo(state_dim)])
 
     timestep = 0

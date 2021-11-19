@@ -37,19 +37,3 @@ end
 policy = DummyPolicy(env)
 
 DE.render(env, policy, path="new.mp4", max_tscs=30.0, fps=15)
-
-# a = Animation()
-#
-# while !is_terminated(env)
-#     env(policy(env))
-#
-#     frame(a, img(env))
-#
-#     display(env.penalty)
-# end
-
-## convert collections of images into gif
-# gif(a, "new.mp4", fps=15)
-# closeall()
-
-# run(policy, env)
