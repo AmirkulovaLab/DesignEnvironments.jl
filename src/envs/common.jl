@@ -50,7 +50,9 @@ function render(
         frame(a, big_plot)
 
         ## apply the policy's action to the environment
-        env(policy(env))
+        action = policy(env)
+        env(action)
+        display(action)
     end
     ProgressMeter.finish!(prog)
 
