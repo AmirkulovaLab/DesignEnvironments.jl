@@ -126,7 +126,7 @@ function reset!(env::CylinderEnv)
         !has_valid_coords(env) || break
     end
 
-    env.velocity = zeros(size(env.coords))
+    env.velocity = zeros(env.M, 2)
 
     calculate_objective(env)
 end
@@ -166,14 +166,6 @@ function continuous_action(env::CylinderEnv, action::Int)
     return action_matrix
 end
 
-#=
-    generates a cylindrical shape at specific coordinates with given radius
-=#
-function cylinder(x, y, r=1; n=30)
-    θ = 0:360÷n:360
-    Plots.Shape(r*sind.(θ) .+ x, r*cosd.(θ) .+ y)
-end
-
 function get_collisions(env::CylinderEnv)
     ## cartisian product to compare each cylinder to one another
     M = env.M
@@ -208,6 +200,14 @@ function get_collisions(env::CylinderEnv)
     collisions = unique(collisions, dims=1)
 
     return collisions
+end
+
+#=
+    generates a cylindrical shape at specific coordinates with given radius
+=#
+function cylinder(x, y, r=1; n=30)
+    θ = 0:360÷n:360
+    Plots.Shape(r*sind.(θ) .+ x, r*cosd.(θ) .+ y)
 end
 
 function img(env::CylinderEnv)

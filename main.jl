@@ -4,14 +4,14 @@ using ReinforcementLearning
 using Plots
 
 env = CylinderEnv(
-    M=4,
-    grid_size=5.0,
+    M=10,
+    grid_size=8.0,
     k0amax=1.0,
-    continuous=false,
+    continuous=true,
     step_size=0.1,
-    nfreq=10,
-    velocity_decay=0.9,
-    physics=true)
+    nfreq=2,
+    velocity_decay=1.0,
+    physics=false)
 
 # policy = RandomPolicy(action_space(env))
 
@@ -27,12 +27,11 @@ end
 
 function (policy::DummyPolicy)(env::CylinderEnv)
     if policy.count >= 1
-        try
+        if env.continuous
             policy.action = zeros(size(action_space(env)))
-        finally
-            policy.action = env |> action_space |> rand
+        else
+            policy.action = 0
         end
-
     end
 
     policy.count += 1
