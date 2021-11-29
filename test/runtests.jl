@@ -1,11 +1,13 @@
 using DesignEnvironments
 using ReinforcementLearning
+using Test
 ENV["GKSwstype"] = "nul"
 
 @testset "DesignEnvironments" begin
-    env = CylinderEnv(M=10, continuous=true, grid_size=10.0)
+    env = CylinderEnv(M=10, continuous=false)
     policy = RandomPolicy(action_space(env))
 
-    render(env, policy, path="thing.mp4")
-
+    initial, optimal = render(env, policy, path="test.mp4")
+    display(initial)
+    display(optimal)
 end

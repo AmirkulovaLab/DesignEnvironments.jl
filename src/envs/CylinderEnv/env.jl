@@ -1,4 +1,6 @@
-export CylinderEnv, action_space, state_space, img
+export
+    CylinderEnv, action_space, state_space, img, state,
+    reward, is_terminated, reset!, render
 
 mutable struct CylinderEnv <: DesignEnv
     ## static params
@@ -38,11 +40,11 @@ function CylinderEnv(;
         k0amin::Float64 = 0.3,
         nfreq::Int = 10,
         episode_length::Int = 100,
-        step_size::Float64 = 0.5,
-        grid_size::Float64 = 5.0,
+        step_size::Float64 = 0.2,
+        grid_size::Float64 = 6.0,
         min_distance::Float64 = 0.1,
-        velocity_decay::Float64=0.9,
-        continuous::Bool = true,
+        velocity_decay::Float64=0.7,
+        continuous::Bool = false,
         physics::Bool = true
         )
 
@@ -91,16 +93,19 @@ function CylinderEnv(;
     return env
 end
 
+## override ReinforcementLearning functions
+RLBase.action_space(env::DesignEnv) = env.action_space
+RLBase.state_space(env::DesignEnv) = env.state_space
 
-function reward(env::CylinderEnv)
+function RLBase.reward(env::CylinderEnv)
     return - env.Q_RMS + env.penalty
 end
 
-function is_terminated(env::CylinderEnv)
+function RLBase.is_terminated(env::CylinderEnv)
     return env.timestep == env.episode_length
 end
 
-function state(env::CylinderEnv)
+function RLBase.state(env::CylinderEnv)
     coords = coords_to_x(env.coords)
 
     if env.physics
@@ -113,7 +118,7 @@ function state(env::CylinderEnv)
     return vcat(s, env.qV, env.Q, env.timestep/env.episode_length)
 end
 
-function reset!(env::CylinderEnv)
+function RLBase.reset!(env::CylinderEnv)
     env.timestep = 0
 
     #=
@@ -356,4 +361,63 @@ function resolve_cylinder_collisions(env::CylinderEnv, collisions::Matrix)
     ## Updating x and y coordinates of cylinder j
     env.coords[collisions[:, 2], 1] = midpoint[:, 1] + (cos.(angle) .* boundry[collisions[:, 2]])
     env.coords[collisions[:, 2], 2] = midpoint[:, 2] + (sin.(angle) .* boundry[collisions[:, 2]])
+end
+
+
+function render(
+        env::CylinderEnv, policy::AbstractPolicy;
+        max_tscs::Float64=5.0, path::String="anim.mp4",
+        fps::Int=30
+        )
+
+    reset!(env)
+
+    dif = (env.k0amax - env.k0amin) / env.nfreq
+    freqv = range(env.k0amin, env.k0amax, length=env.nfreq) |> collect
+
+    a = Animation()
+    prog = ProgressUnknown("Working hard:", spinner=true)
+
+    initial = Dict(:rms=>env.Q_RMS, :coords=>env.coords)
+    optimal = deepcopy(initial)
+
+    while !is_terminated(env)
+        ProgressMeter.next!(prog)
+
+        ## this plot is the image which displays the current state of the environment
+        plot_1 = img(env)
+
+        ## this plot shows the scattering pattern (TSCS) produced by the current configuration
+        plot_2 = plot(
+            freqv, env.Q,
+            xlabel="ka", ylabel="TSCS",
+            xlim=(freqv[1], freqv[end]),
+            ylim=(0, max_tscs))
+
+        ## create a side by side plot containing two subplots
+        big_plot = plot(
+            plot_1,
+            plot_2,
+            layout=@layout([a{0.6w} b]),
+            )
+
+        ## ust this plot as a frame in the animation
+        frame(a, big_plot)
+
+        ## apply the policy's action to the environment
+        action = policy(env)
+        env(action)
+
+        if env.Q_RMS < optimal[:rms]
+            optimal[:rms] = env.Q_RMS
+            optimal[:coords] = env.coords
+        end
+    end
+    ProgressMeter.finish!(prog)
+
+    ## convert collections of images into gif
+    gif(a, path, fps=fps)
+    closeall()
+
+    return (initial, optimal)
 end

@@ -1,3 +1,2 @@
-include("common.jl")
-include("CylinderEnv/env.jl")
-include("CylinderEnv/objective.jl")
+include("design_env.jl")
+include("CylinderEnv/cylinder_env.jl")
