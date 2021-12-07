@@ -102,7 +102,7 @@ function RLBase.reward(env::CylinderEnv)
 end
 
 function RLBase.is_terminated(env::CylinderEnv)
-    return env.timestep == env.episode_length
+    return env.timestep >= env.episode_length
 end
 
 function RLBase.state(env::CylinderEnv)
@@ -137,7 +137,7 @@ function RLBase.reset!(env::CylinderEnv)
 end
 
 coords_to_x(coords::Matrix{Float64})::Vector{Float64} = reshape(coords', length(coords))
-x_to_coords(x::Vector{Float64})::Matrix{Float64} = reshape(x, 2, Int(length(x)/2))'
+x_to_coords(x::AbstractArray{Float64})::Matrix{Float64} = reshape(x, 2, Int(length(x)/2))'
 #=
     calls the objective function on the current configuration
 =#
