@@ -30,7 +30,10 @@ mutable struct CylinderEnv <: DesignEnv
     Q_RMS::Float64
     qV::Vector{Float64}
     Q::Vector{Float64}
+
+    ## penalty
     penalty::Float64
+    penalty_weight::Float64
 end
 
 function CylinderEnv(;
@@ -46,6 +49,7 @@ function CylinderEnv(;
         velocity_decay::Float64=0.7,
         continuous::Bool = false,
         physics::Bool = true
+        penalty_weight::Float64 = 1.0
         )
 
     ## the dimention of the design vector (x) is double the number of cylinders
@@ -87,7 +91,7 @@ function CylinderEnv(;
         step_size, grid_size, min_distance,
         velocity_decay, continuous, physics,
         action_space, state_space, timestep,
-        coords, velocity, radii, Q_RMS, qV, Q, penalty)
+        coords, velocity, radii, Q_RMS, qV, Q, penalty, penalty_weight)
 
     reset!(env)
     return env
@@ -299,6 +303,7 @@ function (env::CylinderEnv)(action)
         end
     end
 
+    env.penalty *= env.penalty_weight
 
     ## calculate scattering
     calculate_objective(env)
