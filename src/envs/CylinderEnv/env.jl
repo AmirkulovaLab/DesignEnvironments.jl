@@ -102,7 +102,7 @@ RLBase.action_space(env::DesignEnv) = env.action_space
 RLBase.state_space(env::DesignEnv) = env.state_space
 
 function RLBase.reward(env::CylinderEnv)
-    return - env.Q_RMS + env.penalty
+    return - env.Q_RMS + env.penalty * env.penalty_weight
 end
 
 function RLBase.is_terminated(env::CylinderEnv)
@@ -302,8 +302,6 @@ function (env::CylinderEnv)(action)
             env.penalty = -1.0
         end
     end
-
-    env.penalty *= env.penalty_weight
 
     ## calculate scattering
     calculate_objective(env)
