@@ -48,7 +48,7 @@ function CylinderEnv(;
         min_distance::Float64 = 0.1,
         velocity_decay::Float64=0.7,
         continuous::Bool = false,
-        physics::Bool = true
+        physics::Bool = true,
         penalty_weight::Float64 = 1.0
         )
 
