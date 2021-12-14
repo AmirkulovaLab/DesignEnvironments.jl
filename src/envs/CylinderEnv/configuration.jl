@@ -1,5 +1,12 @@
-using Plots
+export Configuration, AbstractPlane, Square, Hexagon, img
 
+"""
+Defines a type for the plane on which cylinders exist. This type is used to
+dispatch the get_wall_collisions function differently for different shapes:
+    - Square
+    - Hexagon
+    - Circle
+"""
 abstract type AbstractPlane end
 
 struct Square <: AbstractPlane
@@ -10,9 +17,9 @@ struct Hexagon <: AbstractPlane
     size::Float64
 end
 
-function random_pos(M::Int, plane::Square)
-    return (2 * plane.size) .* (rand(M, 2) .- 0.5)
-end
+const MAX_VEL = 0.2
+const VEL_DECAY = 0.7
+const MIN_DISTANCE = 0.1
 
 """
 Simulates a configuration of cylindrical scatterers on a
@@ -21,45 +28,75 @@ two dimentional plane.
 mutable struct Configuration{P}
     M::Int
     plane::AbstractPlane
-    max_velocity::Float64
-    velocity_decay::Float64
+    max_vel::Float64
+    vel_decay::Float64
     min_distance::Float64
     pos::Matrix
     vel::Matrix
     radii::Vector
 end
 
+function Configuration(
+        M::Int, plane::AbstractPlane,
+        max_vel::Float64, vel_decay::Float64, min_distance::Float64,
+        pos::Matrix, vel::Matrix, radii::Vector)
+
+    config = Configuration{typeof(plane)}(M, plane, max_vel, vel_decay, min_distance, pos, vel, radii)
+    return config
+end
+
 function Configuration(;
-        M,
-        plane,
-        max_velocity = 0.2,
-        velocity_decay = 0.7,
-        min_distance = 0.1)
+        M::Int, plane::AbstractPlane,
+        max_vel::Float64=MAX_VEL, vel_decay::Float64=VEL_DECAY, min_distance::Float64=MIN_DISTANCE)
 
     ## generate starting positions, velocities, and radii
-    pos = random_pos(M, plane)
+    pos = zeros(M, 2)
     vel = zeros(M, 2)
     radii = ones(M)
     # radii = rand(1:0.01:2, M)
 
-    config = Configuration{typeof(plane)}(
-        M,
-        plane,
-        max_velocity,
-        velocity_decay,
-        min_distance,
-        pos,
-        vel,
-        radii)
-
-    reset!(config)
+    config = Configuration(M, plane, max_vel, vel_decay, min_distance, pos, vel, radii)
 
     return config
 end
 
-function reset!(config::Configuration)
+function Configuration(
+        pos::Matrix, vel::Matrix, radii::Vector, plane::AbstractPlane,
+        max_vel::Float64, vel_decay::Float64, min_distance::Float64)
+
+    M = size(pos, 1)
+    config = Configuration(M, plane, max_vel, vel_decay, min_distance, pos, vel, radii)
+
+    return config
+end
+
+"""
+Generates a set of M random coordinates on a square plane.
+"""
+function random_pos(config::Configuration)
+    center_bound = config.plane.size .- config.radii
+    pos = [rand(Uniform(-center_bound[i], center_bound[i]), 2) for i in 1:length(center_bound)]
+    return Matrix(hcat(pos...)')
+end
+
+function Base.getindex(config::Configuration, I)
+    pos = config.pos[I, :]
+    vel = config.vel[I, :]
+    radii = config.radii[I]
+
+
+    return Configuration(
+        pos, vel, radii, config.plane,
+        config.max_vel, config.vel_decay, config.min_distance)
+end
+
+"""
+Resets the configuration to an initial random state. Sets vel equal to zero
+for all cylinders.
+"""
+function reset_config!(config::Configuration)
     while true
-        config.pos = random_pos(config.M, config.plane)
+        config.pos = random_pos(config)
         valid_config = size(get_cylinder_collisions(config), 1) == 0
         !valid_config || break
     end
@@ -67,12 +104,28 @@ function reset!(config::Configuration)
     config.vel = zeros(config.M, 2)
 end
 
+function merge_configs(configs...)
+    pos = vcat(getfield.(configs, :pos)...)
+    vel = vcat(getfield.(configs, :vel)...)
+    radii = vcat(getfield.(configs, :radii)...)
+    plane = configs[1].plane
+    max_vel = configs[1].max_vel
+    vel_decay = configs[1].vel_decay
+    min_distance = configs[1].min_distance
+
+    return Configuration(
+        pos, vel, radii, plane,
+        max_vel, vel_decay, min_distance)
+end
+
+"""
+Calculates the collisions of overlaping cylinders in the configuration.
+"""
 function get_cylinder_collisions(config::Configuration)
     ## extract some variables
     M = config.M
     coords = config.pos
     radii = config.radii
-
     ## get indexes of opposing cylinders involved in collision
     idx = collect(1:M)
     i_idx, j_idx = repeat(idx, outer=M), repeat(idx, inner=M)
@@ -101,10 +154,7 @@ function get_cylinder_collisions(config::Configuration)
     i_cyl, j_cyl = i_idx[is_collision], j_idx[is_collision]
 
     ## zipping colliding cylinders together [(a, b), (c, d), (e, f), ...]
-    collisions = hcat(i_cyl, j_cyl)
-    collisions = sort(collisions, dims=2)
-    collisions = unique(collisions, dims=1)
-
+    collisions = unique(sort(hcat(i_cyl, j_cyl), dims=2), dims=1)
     return collisions
 end
 
@@ -113,13 +163,13 @@ function resolve_cylinder_collisions!(config::Configuration, collisions::Matrix)
     vel = config.vel
     radii = config.radii
 
-    ## getting position and velocity of colliding cylinders
+    ## getting position and vel of colliding cylinders
     i_pos = coords[collisions[:, 1], :]
     j_pos = coords[collisions[:, 2], :]
     i_vel = vel[collisions[:, 1], :]
     j_vel = vel[collisions[:, 2], :]
 
-    ## updating velocity of cylinder i
+    ## updating vel of cylinder i
     C_pos = i_pos - j_pos
     C_vel = i_vel - j_vel
     inner_prod = sum(C_vel .* C_pos, dims=2)
@@ -127,7 +177,7 @@ function resolve_cylinder_collisions!(config::Configuration, collisions::Matrix)
     coef = inner_prod ./ C_pos_norm
     config.vel[collisions[:, 1], :] .-= coef .* C_pos
 
-    ## updating velocity of cylinder j
+    ## updating vel of cylinder j
     C_pos = j_pos - i_pos
     C_vel = j_vel - i_vel
     inner_prod = sum(C_vel .* C_pos, dims=2)
@@ -152,16 +202,11 @@ end
 
 function get_wall_collisions(config::Configuration{Square})
     coords = config.pos
-    radii = config.radii
-    grid_size = config.plane.size
-
     ## Setting the boundry for each cylinder
-    center_bound = grid_size .- radii
-
+    center_bound = config.plane.size .- config.radii
     ## determining which cylinders are colliding with walls
     left_collision = coords[:, 1] .< - center_bound
     right_collision = coords[:, 1] .> center_bound
-
     ## determining which cylinders are colliding with walls
     top_collision = coords[:, 2] .> center_bound
     bottom_collision = coords[:, 2] .< - center_bound
@@ -182,23 +227,32 @@ function resolve_wall_collisions!(config::Configuration{Square}, collisions::Bit
     top_collision = collisions[:, 3]
     bottom_collision = collisions[:, 4]
 
-    ## updating x position and velocity
+    ## updating x position and vel
     config.pos[left_collision, 1] .= - center_bound[left_collision]
     config.pos[right_collision, 1] .= center_bound[right_collision]
     config.vel[left_collision .| right_collision, 1] *= - 1
 
-    ## updating y position and velocity
+    ## updating y position and vel
     config.pos[top_collision, 2] .= center_bound[top_collision]
     config.pos[bottom_collision, 2] .= - center_bound[bottom_collision]
     config.vel[top_collision .| bottom_collision, 2] *= -1
 end
 
+"""
+Will use the calculate the cylinder collisions within the configuration as well
+as collisions between the cylinders and the walls. Returns both collision sets
+together as a tuple of matrix.
+"""
 function get_collisions(config::Configuration)
     cylinder_collisions = get_cylinder_collisions(config)
     wall_collisions = get_wall_collisions(config)
     return (cylinder_collisions, wall_collisions)
 end
 
+"""
+Takes in the configuration and its collisions. Resolves overlaps and wall
+collisions.
+"""
 function resolve_collisions!(config::Configuration, collisions::Tuple)
     cylinder_collisions, wall_collisions = collisions
     resolve_cylinder_collisions!(config, cylinder_collisions)
@@ -206,9 +260,9 @@ function resolve_collisions!(config::Configuration, collisions::Tuple)
 end
 
 function (config::Configuration)(action)
-    config.vel *= config.velocity_decay
+    config.vel *= config.vel_decay
     config.vel += action
-    clamp!(config.vel, -config.max_velocity, config.max_velocity)
+    clamp!(config.vel, -config.max_vel, config.max_vel)
     config.pos += config.vel
 
     collisions = get_collisions(config)

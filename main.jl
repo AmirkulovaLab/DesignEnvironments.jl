@@ -1,43 +1,27 @@
 ENV["GKSwstype"] = "nul"
 using DesignEnvironments
-using ReinforcementLearning
 using Plots
+using ReinforcementLearning
 
-env = CylinderEnv(
-    M=10,
-    grid_size=8.0,
-    k0amax=1.0,
-    continuous=true,
-    step_size=0.1,
-    nfreq=2,
-    velocity_decay=1.0,
-    physics=false)
+make_env() = CylinderEnv(
+    M = 30,
+    plane = Square(20.0),
+    max_vel = 0.5,
+    vel_decay = 1.0)
 
-# policy = RandomPolicy(action_space(env))
+# envs = [make_env() for i in 1:10]
 
-mutable struct DummyPolicy <: AbstractPolicy
-    action
-    count::Int
+# policy = RandomPolicy(action_space(envs[1]))
 
-    function DummyPolicy(env::CylinderEnv)
-        action = env |> action_space |> rand
-        return new(action, 0)
-    end
-end
+MultiThreadEnv(make_env, 10)
 
-function (policy::DummyPolicy)(env::CylinderEnv)
-    if policy.count >= 1
-        if env.continuous
-            policy.action = zeros(size(action_space(env)))
-        else
-            policy.action = 0
-        end
-    end
+# action = [policy(env) for env in envs]
+# action[1]
 
-    policy.count += 1
-    return policy.action
-end
+# @time Threads.@threads for i in 1:10
 
-policy = DummyPolicy(env)
-
-DE.render(env, policy, path="new.mp4", max_tscs=30.0, fps=15)
+#     reset!(env)
+#     while !is_terminated(env)
+#         env(policy(env))
+#     end 
+# end
