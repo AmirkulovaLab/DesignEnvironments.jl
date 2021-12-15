@@ -37,7 +37,7 @@ function TSCS(x::Vector{Float64}, k0amax::Real, k0amin::Real, nfreq::Int)
     s_j = zeros(nfreq, M, 2)
     q_j = zeros(nfreq, M, 2)
 
-    Threads.@threads for Ifreq = 1 : length(freqv)
+    for Ifreq = 1 : length(freqv)
         freq = freqv[Ifreq]
         omega = 2 * pi * freq
         k0 = omega / c0

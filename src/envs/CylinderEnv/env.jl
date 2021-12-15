@@ -74,7 +74,7 @@ function RLBase.reset!(env::CylinderEnv)
 end
 
 function RLBase.is_terminated(env::CylinderEnv)
-    return env.timestep == env.episode_length
+    return env.timestep >= env.episode_length
 end
 
 coords_to_x(coords::Matrix{Float64})::Vector{Float64} = reshape(coords', length(coords))
@@ -107,6 +107,11 @@ function continuous_action(env::CylinderEnv, action::Int)
     action_matrix[cyl, axis] = (-1)^sign * env.step_size
     ## flattening the action into a vector
     return action_matrix
+end
+
+function objective(env::CylinderEnv)
+    x = coords_to_x(env.config.pos)
+    env.Q_RMS, env.qV, env.Q = TSCS(x, env.k0amax, env.k0amin, env.nfreq)
 end
 
 function (env::CylinderEnv)(action)
