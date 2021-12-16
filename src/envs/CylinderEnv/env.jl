@@ -74,6 +74,7 @@ end
 
 function RLBase.reset!(env::CylinderEnv)
     reset_config!(env.config)
+    objective(env)
     env.timestep = 0
 end
 
@@ -135,4 +136,57 @@ function (env::CylinderEnv)(action)
 
     env.penalty = - (size(collisions[1], 1) + sum(collisions[2]))
     objective(env)
+end
+
+function render(env::CylinderEnv, policy::AbstractPolicy, name::String)
+    reset!(env)
+
+    freqv = range(env.k0amin, env.k0amax, length=env.nfreq) |> collect
+
+    a = Animation()
+    prog = ProgressUnknown("Working hard:", spinner=true)
+
+    initial = Dict(:rms=>env.Q_RMS, :coords=>env.config.pos)
+    optimal = deepcopy(initial)
+    max_tscs = maximum(env.Q)
+
+    while !is_terminated(env)
+        ProgressMeter.next!(prog)
+
+        ## this plot is the image which displays the current state of the environment
+        plot_1 = img(env.config)
+
+        ## this plot shows the scattering pattern (TSCS) produced by the current configuration
+        plot_2 = plot(
+            freqv, env.Q,
+            xlabel="ka", ylabel="TSCS",
+            xlim=(freqv[1], freqv[end]),
+            ylim=(0, max_tscs), legend=false)
+
+        ## create a side by side plot containing two subplots
+        big_plot = plot(
+            plot_1,
+            plot_2,
+            layout=@layout([a{0.6w} b]),
+            )
+
+        ## ust this plot as a frame in the animation
+        frame(a, big_plot)
+
+        ## apply the policy's action to the environment
+        action = policy(env)
+        env(action)
+
+        if env.Q_RMS < optimal[:rms]
+            optimal[:rms] = env.Q_RMS
+            optimal[:coords] = env.config.pos
+        end
+    end
+    ProgressMeter.finish!(prog)
+
+    ## convert collections of images into gif
+    gif(a, name * ".mp4", fps=20)
+    closeall()
+
+    return (initial, optimal)
 end
