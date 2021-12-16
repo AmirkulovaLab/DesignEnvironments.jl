@@ -53,6 +53,10 @@ function CylinderEnv(;
     return env
 end
 
+function RLBase.reward(env::CylinderEnv)
+    return - env.Q_RMS - env.penalty * env.collision_penalty
+end
+
 function RLBase.action_space(env::CylinderEnv)
     if env.continuous
         ## in the case of continuous actions the actino space will be a vector
@@ -130,4 +134,5 @@ function (env::CylinderEnv)(action)
     collisions = get_collisions(env.config)
 
     env.penalty = - (size(collisions[1], 1) + sum(collisions[2]))
+    objective(env)
 end

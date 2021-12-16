@@ -2,21 +2,19 @@ ENV["GKSwstype"] = "nul"
 using DesignEnvironments
 using Plots
 using ReinforcementLearning
-RLBase.reward(env::CylinderEnv) = - env.Q_RMS - env.penalty * env.collision_penalty
-
-function objective(env::CylinderEnv)
-    x = coords_to_x(env.config.pos)
-    env.Q_RMS, env.qV, env.Q = TSCS(x, env.k0amax, env.k0amin, env.nfreq)
-end
 
 env = CylinderEnv(
-    M=7, 
+    M=10, 
     plane=Square(10.0),
-    nfreq=30,
-    k0amax=3.0)
+    nfreq=10,
+    k0amax=1.0)
 
-@time objective(env)
 
-p = plot(env.Q)
-savefig(p, "TSCS")
-savefig(img(env.config), "config")
+for i in 1:10
+    reset!(env)
+    @time DE.objective(env)
+    # savefig(plot(env.Q), "TSCS.png")
+    # savefig(img(env.config), "config.png")
+end
+
+display("With $(Threads.nthreads()) threads")
