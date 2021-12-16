@@ -69,7 +69,7 @@ function RLBase.action_space(env::CylinderEnv)
 end
 
 function RLBase.state_space(env::CylinderEnv)
-    return Space([-Inf..Inf for _ in Base.OneTo(3 * env.config.M + env.nfreq)])
+    return Space([-Inf..Inf for _ in Base.OneTo(6 * env.config.M + env.nfreq)])
 end
 
 function RLBase.reset!(env::CylinderEnv)
