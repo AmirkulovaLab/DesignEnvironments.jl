@@ -10,7 +10,7 @@ using BlockDiagonals
 using LinearAlgebra
 using Plots
 using ProgressMeter
-
+using Distributions
 include("envs/envs.jl")
 
 end

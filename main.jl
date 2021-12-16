@@ -1,43 +1,35 @@
 ENV["GKSwstype"] = "nul"
 using DesignEnvironments
-using ReinforcementLearning
 using Plots
+using ReinforcementLearning
 
 env = CylinderEnv(
-    M=10,
-    grid_size=8.0,
+    M=10, 
+    plane=Square(10.0),
+    nfreq=20,
     k0amax=1.0,
-    continuous=true,
-    step_size=0.1,
-    nfreq=2,
-    velocity_decay=1.0,
-    physics=false)
+    max_vel=0.1,
+    vel_decay=1.0)
 
-# policy = RandomPolicy(action_space(env))
-
-mutable struct DummyPolicy <: AbstractPolicy
-    action
-    count::Int
-
-    function DummyPolicy(env::CylinderEnv)
-        action = env |> action_space |> rand
-        return new(action, 0)
-    end
+mutable struct InitialActionPolicy <: AbstractPolicy
+    action_space::Space
+    action::Vector
 end
 
-function (policy::DummyPolicy)(env::CylinderEnv)
-    if policy.count >= 1
-        if env.continuous
-            policy.action = zeros(size(action_space(env)))
-        else
-            policy.action = 0
-        end
-    end
-
-    policy.count += 1
-    return policy.action
+function InitialActionPolicy(action_space::Space)
+    action = rand(action_space)
+    return InitialActionPolicy(action_space, action)
 end
 
-policy = DummyPolicy(env)
+function (p::InitialActionPolicy)(env::CylinderEnv)
+    action = deepcopy(p.action)
+    p.action = zeros(size(p.action_space))
+    return action
+end
 
-DE.render(env, policy, path="new.mp4", max_tscs=30.0, fps=15)
+policy = RandomPolicy(action_space(env))
+# policy = InitialActionPolicy(action_space(env))
+
+display("With $(Threads.nthreads()) threads")
+
+DE.render(env, policy, "animation")
