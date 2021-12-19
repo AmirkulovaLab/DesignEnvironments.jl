@@ -54,7 +54,7 @@ function CylinderEnv(;
 end
 
 function RLBase.reward(env::CylinderEnv)
-    return - env.Q_RMS - env.penalty * env.collision_penalty
+    return - env.Q_RMS + env.penalty * env.collision_penalty
 end
 
 function RLBase.action_space(env::CylinderEnv)
@@ -64,7 +64,7 @@ function RLBase.action_space(env::CylinderEnv)
         action_space = Space([-step_size..step_size for _ in 1:(2 * env.config.M)])
     else
         ## in the case of discrete actions it will be an integer within a range.
-        action_space = Space([1:(4 * env.config.M)])
+        action_space = Base.OneTo(4 * env.config.M)
     end
 end
 
