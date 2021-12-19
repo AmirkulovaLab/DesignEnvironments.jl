@@ -109,7 +109,7 @@ function continuous_action(env::CylinderEnv, action::Int)
     ## finding out which direction on the given axis
     sign = Int(floor(direction / 2))
     ## setting the appropriate cylinder and axis equal to the adjustment
-    action_matrix[cyl, axis] = (-1)^sign * env.step_size
+    action_matrix[cyl, axis] = (-1)^sign * env.config.max_vel
     ## flattening the action into a vector
     return action_matrix
 end
