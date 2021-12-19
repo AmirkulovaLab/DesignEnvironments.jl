@@ -99,7 +99,7 @@ function continuous_action(env::CylinderEnv, action::Int)
     ## decrement action so that action numbering starts at 0 (instead of 1)
     action -= 1
 
-    action_matrix = zeros(env.M, 2)
+    action_matrix = zeros(env.config.M, 2)
     ## getting the cylinder that the current action is adjusting
     cyl = Int(floor(action / 4)) + 1
     ## finding the direction in which that adjustment is being made
