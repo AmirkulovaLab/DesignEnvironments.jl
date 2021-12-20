@@ -10,6 +10,7 @@ mutable struct CylinderEnv <: AbstractEnv
     collision_penalty::Float64
     penalty::Float64
     timestep::Int
+    reward_func::Function
 
     ## placeholder values for design params
     Q_RMS::Float64
@@ -28,7 +29,8 @@ function CylinderEnv(;
         nfreq = 10,
         episode_length = 100,
         continuous = true,
-        collision_penalty = 0.1)
+        collision_penalty = 0.1,
+        reward_func = default_reward)
 
     config = Configuration(
         M = M,
@@ -47,14 +49,18 @@ function CylinderEnv(;
         config, k0amax, k0amin, nfreq,
         episode_length, continuous,
         collision_penalty, penalty, timestep,
-        Q_RMS, qV, Q)
+        reward_func, Q_RMS, qV, Q)
 
     reset!(env)
     return env
 end
 
-function RLBase.reward(env::CylinderEnv)
+function default_reward(env::CylinderEnv)
     return - env.Q_RMS + env.penalty * env.collision_penalty
+end
+
+function RLBase.reward(env::CylinderEnv)
+    return env.reward_func(env)
 end
 
 function RLBase.action_space(env::CylinderEnv)
