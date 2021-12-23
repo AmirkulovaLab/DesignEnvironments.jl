@@ -1,10 +1,5 @@
 export TSCS
 
-using DesignEnvironments
-using SpecialFunctions
-using BlockDiagonals: BlockDiagonal
-using LinearAlgebra
-
 function single_frequency_tscs(
         M::Int, x::Matrix, xM::Vector,
         absr::Vector, argr::Vector,

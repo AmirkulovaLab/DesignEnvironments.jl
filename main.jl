@@ -1,7 +1,4 @@
-ENV["GKSwstype"] = "nul"
 using DesignEnvironments
-using Plots
-using ReinforcementLearning
 
 env = CylinderEnv(
     M=10, 
@@ -10,3 +7,4 @@ env = CylinderEnv(
     k0amax=1.0,
     max_vel=0.1,
     vel_decay=1.0)
+
