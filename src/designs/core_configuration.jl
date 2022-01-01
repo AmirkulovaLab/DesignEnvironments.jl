@@ -39,10 +39,12 @@ mutable struct CoreConfiguration <: AbstractDesign
 end
 
 function CoreConfiguration(;
-    M::Int, plane::Disc,
+    M::Int, plane_size::Float64,
     max_vel::Float64=MAX_VEL, 
     vel_decay::Float64=VEL_DECAY, 
     min_distance::Float64=MIN_DISTANCE)
+
+    plane = Disc(plane_size)
 
     core = hex_core(plane, max_vel, vel_decay, min_distance)
     plane.inner_radius = maximum(core.pos[:, 1]) + core.radii[1] + min_distance
@@ -66,4 +68,29 @@ around the core.
 """
 function reset_design!(design::CoreConfiguration)
     reset_design!(design.config)
+end
+
+"""
+Applies an action to the Configuration of cylinders surrounding the core.
+Returns a penalty associated with the inter cylinder collisions and wall collisions.
+"""
+function (design::CoreConfiguration)(action)
+    penalty = design.config(action)
+    return penalty
+end
+
+"""
+Creates an image which shows the core (unchanging) configuration as well as the design
+cylinders.
+"""
+function DE.img(design::CoreConfiguration)
+    core_img = img(design.core, color=:plum)
+
+    x, y = design.config.pos[:, 1], design.config.pos[:, 2]
+    r = design.config.radii
+
+    ## create a vector of cylinder objects
+    cylinders = DE.cylinder.(x, y, r)
+    plot!(core_img, cylinders; color=:teal)
+    return core_img
 end

@@ -323,6 +323,33 @@ function resolve_wall_collisions!(config::Configuration{Square}, collisions::Bit
     config.vel[top_collision .| bottom_collision, 2] *= -1
 end
 
+function resolve_wall_collisions!(config::Configuration{Disc}, collisions::BitMatrix)
+    ## extracting inner and outer collisions from the BitMatrix
+    inner_collision = collisions[:, 1]
+    outer_collision = collisions[:, 2]
+
+    ## extracting x and y coordinates of all cylinders
+    x, y = config.pos[:, 1], config.pos[:, 2]
+
+    ## calculating the new coordinates for cylinders colliding with the inner radius of the Disc
+    d = sqrt.(x[inner_collision] .^ 2 + y[inner_collision] .^ 2)
+    theta = asin(y[inner_collision] ./ d)
+    r =  config.plane.inner_radius .+ config.radii[inner_collision]
+
+    ## updating the coordinates of inner collisions
+    config.pos[inner_collision, 1] = r * cos(theta)
+    config.pos[inner_collision, 2] = r * sin(theta)
+
+    ## calculating the new coordinates for cylinders colliding with the outer radius
+    d = sqrt.(x[outer_collision] .^ 2 + y[outer_collision] .^ 2)
+    theta = asin(y[outer_collision] ./ d)
+    r = config.plane.outer_radius .- config.radii[outer_collision]
+
+    ## updating the coordinates of inner collisions
+    config.pos[outer_collision, 1] = r * cos(theta)
+    config.pos[outer_collision, 2] = r * sin(theta)
+end
+
 """
 Will use the calculate the cylinder collisions within the configuration as well
 as collisions between the cylinders and the walls. Returns both collision sets
