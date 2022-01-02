@@ -62,6 +62,10 @@ function CoreConfiguration(;
     return design
 end
 
+function now(design::CoreConfiguration)
+    return now(design.config)
+end
+
 """
 Reseting the coordinates of the Configuration of cylinders to be in random positions
 around the core.

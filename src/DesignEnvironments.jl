@@ -15,4 +15,6 @@ using Distributions
 include("core/all.jl")
 include("designs/all.jl")
 include("objectives/all.jl")
+include("common/all.jl")
+
 end

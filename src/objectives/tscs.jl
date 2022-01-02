@@ -275,19 +275,31 @@ function (tscs::TSCS)(x::Matrix)
     tscs.Q = Q
 end
 
-function img(tscs::TSCS, max_tscs::Float64)
+function (tscs::TSCS)(config::Configuration)
+    return tscs(config.pos)
+end
+
+function (tscs::TSCS)(design::CoreConfiguration)
+    config = merge_configs(design.core, design.config)
+    return tscs(config)
+end
+
+function scale(tscs::TSCS)
+    return (0.0, maximum(tscs.Q))
+end
+
+function img(tscs::TSCS, objective_scale::Tuple)
     freqv = range(tscs.k0amin, tscs.k0amax, length=tscs.nfreq) |> collect
 
-    plot(
+    return plot(
         freqv, tscs.Q,
         xlabel="ka", ylabel="TSCS",
         xlim = (freqv[1], freqv[end]),
-        ylim = (0, max_tscs), legend=false)
+        ylim = objective_scale, legend=false)
 end
 
 function img(tscs::TSCS)
-    max_tscs = maximum(tscs.Q)
-    return img(tscs, max_tscs)
+    return img(tscs, scale(tscs))
 end
 
 function now(tscs::TSCS)
@@ -298,10 +310,3 @@ function metric(tscs::TSCS)
     return tscs.Q_RMS
 end
 
-function (tscs::TSCS)(config::Configuration)
-    return tscs(config.pos)
-end
-
-function RLBase.state_space(config::Configuration, tscs::TSCS)
-    return Space([-Inf..Inf for _ in Base.OneTo(6 * config.M + tscs.nfreq)])
-end

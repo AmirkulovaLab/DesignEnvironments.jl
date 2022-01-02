@@ -3,21 +3,13 @@ using ReinforcementLearning
 using Plots
 using ProgressMeter
 
-M = 14
+M = 7
 
-design = CoreConfiguration(M = M, plane_size = 15.0, vel_decay=1.0)
+env = DesignEnvironment(
+    design = CoreConfiguration(M = M, plane_size = 15.0, vel_decay=1.0),
+    # design = Configuration(M = M, plane = Square(15.0)),
+    objective = TSCS(k0amax = 1.0, k0amin = 0.3, nfreq = 15))
 
-a = Animation()
+policy = RandomPolicy(action_space(env))
 
-action = randn(2* M) * 3.0
-design(action)
-action = zeros(2* M)
-
-for i in 1:100
-    frame(a, img(design))
-    design(action)
-end
-
-gif(a, "anim.mp4", fps=20)
-closeall()
-# savefig(img(design), "config.png")
+DE.render(env, policy, "anim.mp4")

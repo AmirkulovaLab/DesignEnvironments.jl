@@ -10,7 +10,7 @@ const PENALTY_WEIGHT = 0.1
 """
 Base environment for episodic design optimization
 """
-mutable struct DesignEnvironment <: AbstractEnv
+mutable struct DesignEnvironment{D, O} <: AbstractEnv
     design::AbstractDesign
     objective::AbstractObjective
     is_continuous::Bool
@@ -30,7 +30,7 @@ function DesignEnvironment(;
     penalty_weight::Float64 = PENALTY_WEIGHT)
 
     ## DesignEnvironment starting at timestep 0
-    env = DesignEnvironment(
+    env = DesignEnvironment{typeof(design), typeof(objective)}(
         design, objective, is_continuous, episode_length, penalty_weight, 0, 0.0
         )
 
@@ -72,6 +72,30 @@ function (env::DesignEnvironment)(action)
     env.objective(env.design)
 end
 
-function img(env::DesignEnvironment)
-    return plot(img(env.design), img(env.objective), layout=@layout([a{0.6w} b]))
+function img(env::DesignEnvironment, objective_scale::Tuple = ())
+    objective_img = isempty(objective_scale) ? img(env.objective) : img(env.objective, objective_scale)
+
+    return plot(img(env.design), objective_img, layout=@layout([a{0.6w} b]))
+end
+
+"""
+Default rendering function for the DesignEnvironment.
+
+To override this function make on which acts on typeof:
+    DesignEnvironment{typeof(design), typeof(objective)}
+"""
+function render(env::DesignEnvironment, policy::AbstractPolicy, path::String)
+    reset!(env)
+
+    a = Animation()
+
+    objective_scale = scale(env.objective)
+
+    while !is_terminated(env)
+        frame(a, img(env, objective_scale))
+        env(policy(env))
+    end
+
+    gif(a, path, fps=20)
+    closeall()
 end
