@@ -72,10 +72,18 @@ function (env::DesignEnvironment)(action)
     env.objective(env.design)
 end
 
-function img(env::DesignEnvironment, objective_scale::Tuple = ())
-    objective_img = isempty(objective_scale) ? img(env.objective) : img(env.objective, objective_scale)
+function img(env::DesignEnvironment, objective_scale::Tuple)
+    return plot(
+        img(env.design), 
+        img(env.objective, objective_scale), 
+        layout=@layout([a{0.6w} b]))
+end
 
-    return plot(img(env.design), objective_img, layout=@layout([a{0.6w} b]))
+function img(env::DesignEnvironment)
+    return plot(
+        img(env.design), 
+        img(env.objective, scale(env.objective)),
+        layout=@layout([a{0.6w} b]))
 end
 
 """

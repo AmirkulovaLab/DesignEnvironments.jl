@@ -365,12 +365,18 @@ function resolve_collisions!(config::Configuration, collisions::Tuple)
     resolve_wall_collisions!(config, wall_collisions)
 end
 
+"""
+Generates points in a circular shape at the given (x, y) location with the given radius.
+"""
 function cylinder(x, y, r; n=30)
     θ = 0:360÷n:360
     Plots.Shape(r*sind.(θ) .+ x, r*cosd.(θ) .+ y)
 end
 
-function img(config::Configuration; color=:black)
+"""
+Produces an image of the current state of the Configuration.
+"""
+function img(config::Configuration; color=:teal)
     coords = config.pos
     radii = config.radii
     grid_size = size(config.plane)

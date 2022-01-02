@@ -1,29 +1,43 @@
-function DE.render(
-        env::DesignEnvironment{CoreConfiguration, TSCS}, 
-        policy::AbstractPolicy, 
-        path::String)
+export Render
 
-    design = env.design
-    tscs = env.objective
+mutable struct Render <: AbstractHook
+    path::String
+    a::Animation
+    objective_scale::Tuple
+end
 
+function Render(path::String)
+    return Render(path, Animation(), ())
+end
+
+function (render::Render)(::PreEpisodeStage, policy::AbstractPolicy, env::DesignEnvironment)
     reset!(env)
-    freqv = range(tscs.k0amin, tscs.k0amax, length=tscs.nfreq) |> collect
+    render.objective_scale = scale(env.objective)
+end
 
-    a = Animation()
+function (render::Render)(::PostActStage, policy::AbstractPolicy, env::DesignEnvironment)
+    frame(render.a, img(env, render.objective_scale))
+end
 
-    objective_scale = DE.scale(tscs)
+function (render::Render)(
+        ::PostActStage, 
+        policy::AbstractPolicy, 
+        env::DesignEnvironment{CoreConfiguration, TSCS})
 
-    env.objective(design.core)
-    core_Q = tscs.Q
+    p = img(env, render.objective_scale)
 
-    while !is_terminated(env)
-        env(policy(env))
+    k0amin = env.objective.k0amin
+    k0amax = env.objective.k0amax
+    nfreq = env.objective.nfreq
 
-        p = img(env, objective_scale)
-        plot!(p[2], freqv, core_Q)
-        frame(a, p)
-    end
+    freqv = range(k0amin, k0amax, length=nfreq) |> collect
+    env.objective(env.design.core)
+    plot!(p[2], freqv, env.objective.Q)
+    
+    frame(render.a, p)
+end
 
-    gif(a, path, fps=20)
+function (render::Render)(::PostEpisodeStage, policy::AbstractPolicy, env::DesignEnvironment)
+    gif(render.a, render.path, fps=20)
     closeall()
 end
