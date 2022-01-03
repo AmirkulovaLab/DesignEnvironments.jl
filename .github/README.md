@@ -1,1 +1,1 @@
-ln -s ../docs/src/index.md
+[link](../docs/src/index.md)
