@@ -1,1 +1,1 @@
-[link](../docs/src/index.md)
+![](./docs/src/index.md)
