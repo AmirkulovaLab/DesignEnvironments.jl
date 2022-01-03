@@ -6,6 +6,29 @@ const AA = 1.0
 const A = AA
 const HA = AA / 10
 
+"""
+Calculates the Total Scattering Cross Section of a planar `Configuration` of cylindrical scatterers.
+TSCS is calculated independently for each wavenumber (nfreq). Therefore this calculation benifits from
+multithreading. Start julia with threads <= nfreq to take advantage of this.
+
+# Example
+```
+objective = TSCS(k0amax = 1.0, k0amin = 0.3, nfreq = 30)
+```
+
+# Parameters
+- `k0amax::Float64`
+- `k0amin::Float64`
+- `nfreq::Int`
+- `rho::Float64`
+- `c0::Float64`
+- `aa::Float64`
+- `a::Float64`
+- `ha::Float64`
+- `Q_RMS::Float64`
+- `qV::Vector`
+- `Q::Vector`
+"""
 mutable struct TSCS <: AbstractObjective
     k0amax::Float64
     k0amin::Float64
@@ -233,6 +256,15 @@ function σ(tscs::TSCS, x::Matrix, xM::Vector, absr::Vector, argr::Vector, freq:
     return (Q, q_j)
 end
 
+"""
+Defines the function call for `TSCS` on a `Matrix` of scatterer coordinates.
+
+# Example
+```
+objective = TSCS(k0amax = 1.0, k0amin = 0.3, nfreq = 30)
+objective(x)
+```
+"""
 function (tscs::TSCS)(x::Matrix)
     M = size(x, 1)
 
@@ -275,10 +307,21 @@ function (tscs::TSCS)(x::Matrix)
     tscs.Q = Q
 end
 
+"""
+Defines function call for `TSCS` on a `Configuration`
+
+# Example
+```
+objective(config)
+```
+"""
 function (tscs::TSCS)(config::Configuration)
     return tscs(config.pos)
 end
 
+"""
+Defines function call for `TSCS` on a `CoreConfiguration`
+"""
 function (tscs::TSCS)(design::CoreConfiguration)
     config = merge_configs(design.core, design.config)
     return tscs(config)

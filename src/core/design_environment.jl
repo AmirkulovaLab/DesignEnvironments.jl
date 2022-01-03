@@ -8,7 +8,24 @@ const EPISODE_LENGTH = 100
 const PENALTY_WEIGHT = 0.1
 
 """
-Base environment for episodic design optimization
+Base environment for episodic design optimization.
+
+# Example
+```
+env = DesignEnvironment(
+    design = Configuration(M = M, plane = Square(10.0), vel_decay=0.9),
+    objective = TSCS(k0amax = 1.0, k0amin = 0.3, nfreq = 15)
+    )
+```
+
+# Parameters
+- `design::AbstractDesign`
+- `objective::AbstractObjective`
+- `is_continuous::Bool`: specifies if design actions are continuous or discrete
+- `episode_length::Int`: number of steps (actions) in a design episode
+- `penalty_weight::Float64`: scalar which determines penalty for actions which result in invalid states
+- `timestep::Int`: current step number in the episode
+- `penalty::Float64`: holds the current penalty
 """
 mutable struct DesignEnvironment{D, O} <: AbstractEnv
     design::AbstractDesign

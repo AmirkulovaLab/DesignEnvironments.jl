@@ -67,7 +67,7 @@ function now(design::CoreConfiguration)
 end
 
 """
-Reseting the coordinates of the Configuration of cylinders to be in random positions
+Reseting the coordinates of the `CoreConfiguration` of cylinders to be in random positions
 around the core.
 """
 function reset_design!(design::CoreConfiguration)

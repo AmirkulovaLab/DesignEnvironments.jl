@@ -7,37 +7,76 @@ const MIN_DISTANCE = 0.1
 
 """
 Defines a type for the plane on which cylinders exist. This type is used to
-dispatch the get_wall_collisions function differently for different shapes:
-    - Square
-    - Hexagon
-    - Circle
+dispatch the `get_wall_collisions` function differently for different shapes.
 """
 abstract type AbstractPlane end
 
+"""
+A Square plane
+
+# Example
+```
+plane = Square(15.0)
+```
+"""
 struct Square <: AbstractPlane
     size::Float64
 end
 
+"""
+Defines the `size` function for `Square` planes. Returns the plane's size.
+"""
 Base.size(plane::Square) = plane.size
 
+"""
+A `Disc` plane with an inner and outer radius. Configurations of cylinders can
+exist between these radii.
+
+# Example
+```
+plane = Disc(2.0, 15.0)
+```
+"""
 mutable struct Disc <: AbstractPlane
     inner_radius::Float64
     outer_radius::Float64
 end
 
+"""
+Provides an option of only specifying the outer radius. Assumes the inner radius
+is zero.
+
+# Example
+```
+plane = Disc(15.0)
+```
+"""
 function Disc(outer_radius::Float64)
     return Disc(0.0, outer_radius)
 end
 
+"""
+Returns the outer radius of the `Disc` plane.
+"""
 Base.size(plane::Disc) = plane.outer_radius
 
 """
 Simulates a configuration of cylindrical scatterers on a
 two dimentional plane.
+
+# Parameters
+- `M::Int`: number of cylindrical scatterers
+- `plane::AbstractPlane`: 2 dimentional surface on which scatterers exist
+- `max_vel::Float64`: maximum allowable movement speed of cylinders
+- `vel_decay::Float64`: percentage of velocity which remains after each step (0, 1.0)
+- `min_distance::Float64`: minimum allowable distance between cylinders
+- `pos::Matrix`: (x, y) coordinates of each cylinder
+- `vel::Matrix`: (dx, dy) velocity of each cylinder
+- `radii::Vector`: radius of each cylinder
 """
-mutable struct Configuration{P} <: AbstractDesign
+mutable struct Configuration{P <: AbstractPlane} <: AbstractDesign
     M::Int
-    plane::AbstractPlane
+    plane::P
     max_vel::Float64
     vel_decay::Float64
     min_distance::Float64
@@ -47,19 +86,19 @@ mutable struct Configuration{P} <: AbstractDesign
 end
 
 """
-Default constructor for defining a Configuration of cylindrical scatterers.
-"""
-function Configuration(
-        M::Int, plane::AbstractPlane,
-        max_vel::Float64, vel_decay::Float64, min_distance::Float64,
-        pos::Matrix, vel::Matrix, radii::Vector)
-
-    config = Configuration{typeof(plane)}(M, plane, max_vel, vel_decay, min_distance, pos, vel, radii)
-    return config
-end
-
-"""
 Constructor which initializes a randomly generated Configuration.
+
+# Example
+```
+config = Configuration(
+    M = 7,
+    plane = Square(15.0),
+    max_vel = DE.MAX_VEL,
+    vel_decay = DE.VEL_DECAY,
+    min_distance = DE.MIN_DISTANCE)
+```
+
+The arguments `max_vel`, `vel_decay`, and `min_distance` are optional.
 """
 function Configuration(;
         M::Int, plane::AbstractPlane,
@@ -69,7 +108,6 @@ function Configuration(;
     pos = zeros(M, 2)
     vel = zeros(M, 2)
     radii = ones(M)
-    # radii = rand(1:0.01:2, M) ## generate random radii in range
 
     config = Configuration(M, plane, max_vel, vel_decay, min_distance, pos, vel, radii)
 
@@ -79,7 +117,18 @@ function Configuration(;
 end
 
 """
-Constructor for defining a Configuration from a preexisting set of coordinates
+Constructor for defining a Configuration from a preexisting set of coordinates.
+
+# Example
+```
+pos = zeros(M, 2)
+vel = zeros(M, 2)
+radii = ones(M)
+
+config = Configuration(
+    pos, vel, radii, Square(15.0), 
+    DE.MAX_VEL, DE.VEL_DECAY, DE.MIN_DISTANCE)
+```
 """
 function Configuration(
         pos::Matrix, vel::Matrix, radii::Vector, plane::AbstractPlane,
@@ -91,9 +140,20 @@ function Configuration(
     return config
 end
 
+"""
+Converts a `Matrix` of coordinates `(M, 2)` to a `Vector` of length `M * 2`.
+"""
 coords_to_x(coords::Matrix)::Vector = reshape(coords', length(coords))
+
+"""
+Converts a `Vector` of coordinates to a `Matrix`
+"""
 x_to_coords(x::AbstractArray)::Matrix = reshape(x, 2, Int(length(x)/2))'
 
+"""
+Obtains the current state of the configuration in the form of a `Vector`. The state
+is comprised of the position and velocity of the cylinders.
+"""
 function now(config::Configuration)
     pos = coords_to_x(config.pos)
     vel = coords_to_x(config.vel)
@@ -101,7 +161,8 @@ function now(config::Configuration)
 end
 
 """
-Generates a set of M random coordinates on a Square plane.
+Generates a set of `M` random coordinates on a `Square` plane. Must be  
+`Configuration{Square}` type.
 """
 function random_pos(config::Configuration{Square})
     center_bound = config.plane.size .- config.radii
@@ -110,7 +171,8 @@ function random_pos(config::Configuration{Square})
 end
 
 """
-Generates a set of M random coordinates on a Disc plane.
+Generates a set of M random coordinates on a `Disc` plane. Must be 
+`Configuration{Disc}` type.
 """
 function random_pos(config::Configuration{Disc})
     inner_radius = config.plane.inner_radius .+ config.radii
@@ -127,7 +189,7 @@ function random_pos(config::Configuration{Disc})
 end
 
 """
-Resets the configuration to an initial random state. Sets vel equal to zero
+Resets the `Configuration` to an initial random state. Sets vel equal to zero
 for all cylinders.
 """
 function reset_design!(config::Configuration)
@@ -143,6 +205,9 @@ function reset_design!(config::Configuration)
     config.vel = zeros(config.M, 2)
 end
 
+"""
+Obtains the position, velocity, and radius of the `i` th cylinder.
+"""
 function Base.getindex(config::Configuration, I)
     pos = config.pos[I, :]
     vel = config.vel[I, :]
@@ -154,6 +219,14 @@ function Base.getindex(config::Configuration, I)
         config.max_vel, config.vel_decay, config.min_distance)
 end
 
+"""
+Combines many `Configuration` (s) into one.
+
+# Example
+```
+config = merge_configs(config1, config2, config3)
+```
+"""
 function merge_configs(configs...)
     pos = vcat(getfield.(configs, :pos)...)
     vel = vcat(getfield.(configs, :vel)...)
@@ -169,7 +242,7 @@ function merge_configs(configs...)
 end
 
 """
-Calculates the collisions of overlaping cylinders in the configuration.
+Calculates the collisions of overlaping cylinders in the `Configuration`.
 """
 function get_cylinder_collisions(config::Configuration)
     ## extract some variables
@@ -208,6 +281,16 @@ function get_cylinder_collisions(config::Configuration)
     return collisions
 end
 
+"""
+Resolves any inter-cylinder collisions that are present in the configuration. Returns the
+'Configuration' to a valid state.
+
+# Example
+```
+collisions = get_cylinder_collisions(config)
+resolve_cylinder_collisions!(config, collisions)
+```
+"""
 function resolve_cylinder_collisions!(config::Configuration, collisions::Matrix)
     coords = config.pos
     vel = config.vel
@@ -251,8 +334,10 @@ function resolve_cylinder_collisions!(config::Configuration, collisions::Matrix)
 end
 
 """
-Determines the collisions for a Configuration on a Square plane. Collisions may occur
+Determines the collisions for a `Configuration` on a `Square` plane. Collisions may occur
 against any of the four walls.
+
+Must be called on `Configuration{Square}`
 """
 function get_wall_collisions(config::Configuration{Square})
     coords = config.pos
@@ -269,8 +354,10 @@ function get_wall_collisions(config::Configuration{Square})
 end
 
 """
-Determines the wall collisions for a Configuration which exists on a Disc plane.
+Determines the wall collisions for a `Configuration`` which exists on a `Disc` plane.
 Collisions may occur against the inner radius or outer radius of the disc.
+
+Must be called on `Configuration{Disc}`
 """
 function get_wall_collisions(config::Configuration{Disc})
     coords = config.pos
@@ -286,6 +373,14 @@ function get_wall_collisions(config::Configuration{Disc})
     return hcat(inner_collision, outer_collision)
 end
 
+"""
+Resolves cylinder-wall collisions by adjusting the position and velocities of the offending
+cylinders accordingly.
+
+# Arguments
+- `config::Configuration{Square}`: current `Configuration` on a `Square` plane.
+- `collisions::BitMatrix`: cylinders colliding with walls.
+"""
 function resolve_wall_collisions!(config::Configuration{Square}, collisions::BitMatrix)
     radii = config.radii
     grid_size = config.plane.size
@@ -310,6 +405,11 @@ function resolve_wall_collisions!(config::Configuration{Square}, collisions::Bit
     config.vel[top_collision .| bottom_collision, 2] *= -1
 end
 
+"""
+# Arguments
+- `config::Configuration{Disc}`
+- `collisions::BitMatrix`
+"""
 function resolve_wall_collisions!(config::Configuration{Disc}, collisions::BitMatrix)
     ## extracting inner and outer collisions from the BitMatrix
     inner_collision = collisions[:, 1]
@@ -345,9 +445,14 @@ function resolve_wall_collisions!(config::Configuration{Disc}, collisions::BitMa
 end
 
 """
-Will use the calculate the cylinder collisions within the configuration as well
-as collisions between the cylinders and the walls. Returns both collision sets
-together as a tuple of matrix.
+Calculates inter-cylinder collisions as well as collisions between the 
+cylinders and the walls. Returns both collision sets together as a `Tuple` of `Matrix`.
+
+# Arguments
+- `config::Configuration`
+
+# Returns
+- `::Tuple`
 """
 function get_collisions(config::Configuration)
     cylinder_collisions = get_cylinder_collisions(config)
@@ -358,6 +463,10 @@ end
 """
 Takes in the configuration and its collisions. Resolves overlaps and wall
 collisions.
+
+# Arguments
+- `config::Configuration`
+- `collisions::Tuple`
 """
 function resolve_collisions!(config::Configuration, collisions::Tuple)
     cylinder_collisions, wall_collisions = collisions
@@ -367,6 +476,14 @@ end
 
 """
 Generates points in a circular shape at the given (x, y) location with the given radius.
+
+# Arguments
+- `x::Float64`
+- `y::Float64`
+- `r::Float64`
+
+# Returns
+- `::Plots.Shape`
 """
 function cylinder(x, y, r; n=30)
     θ = 0:360÷n:360
@@ -374,7 +491,7 @@ function cylinder(x, y, r; n=30)
 end
 
 """
-Produces an image of the current state of the Configuration.
+Produces an image of the current state of the `Configuration`.
 """
 function img(config::Configuration; color=:teal)
     coords = config.pos
@@ -399,6 +516,18 @@ end
 """
 Converts an integer action into an action matrix which can be
 added to the configuration.
+
+# Arguments
+- `config::Configuration`
+- `action::Int`
+
+# Returns
+- `::Matrix`
+
+# Example
+```
+action = continuous_action(config, 5)
+```
 """
 function continuous_action(config::Configuration, action::Int)
     ## decrement action so that action numbering starts at 0 (instead of 1)
@@ -424,6 +553,18 @@ Function which handles the application of an action to the design. The action ca
 either a matrix of velocity adjustments or an integer which represents a discrete action.
 
 The function returns a penalty from the action which is to be minimized in the reward function.
+
+# Arguments
+- `action::Union{Vector, Int}`
+
+# Returns
+- `::Int`
+
+# Example
+```
+action = randn(config.M * 2)
+penalty = config(action)
+```
 """
 function (config::Configuration)(action)
 
