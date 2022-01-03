@@ -1,1 +1,1 @@
-![](./docs/src/index.md)
+![](./docs/build/index.html)
