@@ -1,4 +1,4 @@
-export Configuration, Square, Disc, img, now
+export Configuration, Square, Disc, now
 export MAX_VEL, VEL_DECAY, MIN_DISTANCE
 
 const MAX_VEL = 0.2
@@ -487,13 +487,13 @@ Generates points in a circular shape at the given (x, y) location with the given
 """
 function cylinder(x, y, r; n=30)
     θ = 0:360÷n:360
-    Plots.Shape(r*sind.(θ) .+ x, r*cosd.(θ) .+ y)
+    Shape(r*sind.(θ) .+ x, r*cosd.(θ) .+ y)
 end
 
 """
-Produces an image of the current state of the `Configuration`.
+Plots an image of the current state of the `Configuration`.
 """
-function img(config::Configuration; color=:teal)
+function Plots.plot(config::Configuration; color=:teal)
     coords = config.pos
     radii = config.radii
     grid_size = size(config.plane)

@@ -331,7 +331,15 @@ function scale(tscs::TSCS)
     return (0.0, maximum(tscs.Q))
 end
 
-function img(tscs::TSCS, objective_scale::Tuple)
+function now(tscs::TSCS)
+    return vcat(tscs.qV, tscs.Q)
+end
+
+function metric(tscs::TSCS)
+    return tscs.Q_RMS
+end
+
+function Plots.plot(tscs::TSCS, objective_scale::Tuple)
     freqv = range(tscs.k0amin, tscs.k0amax, length=tscs.nfreq) |> collect
 
     return plot(
@@ -341,15 +349,7 @@ function img(tscs::TSCS, objective_scale::Tuple)
         ylim = objective_scale, legend=false)
 end
 
-function img(tscs::TSCS)
+function Plots.plot(tscs::TSCS)
     return img(tscs, scale(tscs))
-end
-
-function now(tscs::TSCS)
-    return vcat(tscs.qV, tscs.Q)
-end
-
-function metric(tscs::TSCS)
-    return tscs.Q_RMS
 end
 
