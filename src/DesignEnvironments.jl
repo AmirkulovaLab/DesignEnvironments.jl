@@ -11,6 +11,10 @@ using LinearAlgebra
 using Plots
 using ProgressMeter
 using Distributions
-include("envs/envs.jl")
+
+include("core/all.jl")
+include("designs/all.jl")
+include("objectives/all.jl")
+include("common/all.jl")
 
 end

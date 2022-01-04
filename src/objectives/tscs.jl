@@ -1,15 +1,70 @@
-export TSCS
+export TSCS, img, now
 
-function single_frequency_tscs(
-        M::Int, x::Matrix, xM::Vector,
-        absr::Vector, argr::Vector,
-        freq::Float64, c0::Float64, aa::Float64)
+const RHO = 1000.0
+const C0 = 1480.0
+const AA = 1.0
+const A = AA
+const HA = AA / 10
 
-    a = aa
+"""
+Calculates the Total Scattering Cross Section of a planar `Configuration` of cylindrical scatterers.
+TSCS is calculated independently for each wavenumber (nfreq). Therefore this calculation benifits from
+multithreading. Start julia with threads <= nfreq to take advantage of this.
+
+# Example
+```
+objective = TSCS(k0amax = 1.0, k0amin = 0.3, nfreq = 30)
+```
+
+# Parameters
+- `k0amax::Float64`
+- `k0amin::Float64`
+- `nfreq::Int`
+- `rho::Float64`
+- `c0::Float64`
+- `aa::Float64`
+- `a::Float64`
+- `ha::Float64`
+- `Q_RMS::Float64`
+- `qV::Vector`
+- `Q::Vector`
+"""
+mutable struct TSCS <: AbstractObjective
+    k0amax::Float64
+    k0amin::Float64
+    nfreq::Int
+    rho::Float64
+    c0::Float64
+    aa::Float64
+    a::Float64
+    ha::Float64
+
+    ## cache of last calculated objective
+    Q_RMS::Float64
+    qV::Vector
+    Q::Vector
+end
+
+function TSCS(;
+    k0amax, k0amin, nfreq,
+    rho = RHO, c0 = C0, aa = AA, a = A, ha = HA)
+    
+    Q_RMS = 0.0
+    qV = Vector()
+    Q = Vector()
+
+    return TSCS(k0amax, k0amin, nfreq, rho, c0, aa, a, ha, Q_RMS, qV, Q)
+end
+
+function σ(tscs::TSCS, x::Matrix, xM::Vector, absr::Vector, argr::Vector, freq::Float64)
+    ## number of cylinders
+    M = size(x, 1)
+
+    ## establishing properties for σ calculation
     omega = 2 * pi * freq
-    k0 = omega / c0
-    ka = k0 * a
-    kaa = k0 * aa
+    k0 = omega / tscs.c0
+    ka = k0 * tscs.a
+    kaa = k0 * tscs.aa
     nmax = round(2.5 * ka)
     N = Int(nmax)
     nv = collect(-nmax:nmax)
@@ -26,7 +81,7 @@ function single_frequency_tscs(
 
     ## creating 3d matrix
     T = [T_0]
-    for i = 2 : M
+    for _ in 2 : M
         append!(T, [T_1])
     end
 
@@ -37,6 +92,10 @@ function single_frequency_tscs(
 
     Ainv = zeros(ComplexF64, N_size, M)
     AM = zeros(ComplexF64, N_size, M)
+
+    ## incident plane wave amplitude
+    Ainv[:, 1] = exp(1im * k0 * xM[1]) * exp.(nv .* (1im * pi / 2))
+    AM[:, 1] = T_0 * Ainv[:, 1]
 
     ## incident plane wave amplitude
     Ainv[:, 1] = exp(1im * k0 * xM[1]) * exp.(nv .* (1im * pi / 2))
@@ -197,21 +256,20 @@ function single_frequency_tscs(
     return (Q, q_j)
 end
 
-function TSCS(x::Vector{Float64}, k0amax::Real, k0amin::Real, nfreq::Int)
-    ## material properties
-    ## properties of water
-    rho = 1000
-    c0 = 1480.0
-    ## shell properties
-    aa = 1.0
-    a = aa
-    ha = aa / 10
+"""
+Defines the function call for `TSCS` on a `Matrix` of scatterer coordinates.
 
-    ## number of cylinders
-    M = Int(length(x) / 2)
+# Example
+```
+objective = TSCS(k0amax = 1.0, k0amin = 0.3, nfreq = 30)
+objective(x)
+```
+"""
+function (tscs::TSCS)(x::Matrix)
+    M = size(x, 1)
 
     ## reshaping and transpose
-    x = Matrix(reshape(x, 2, M)')
+    # x = Matrix(reshape(x, 2, M)')
     xM = x[:,1]
     yM = x[:,2]
 
@@ -222,26 +280,76 @@ function TSCS(x::Vector{Float64}, k0amax::Real, k0amin::Real, nfreq::Int)
     argr[argr .< 0] .+= (2 * pi)
 
     # getting frequency range
-    freqmax = (k0amax * c0) / (2 * pi * a)
-    freqmin = (k0amin * c0) / (2 * pi * a)
-    df = (freqmax - freqmin) / (nfreq - 1)
+    freqmax = (tscs.k0amax * tscs.c0) / (2 * pi * tscs.a)
+    freqmin = (tscs.k0amin * tscs.c0) / (2 * pi * tscs.a)
+    df = (freqmax - freqmin) / (tscs.nfreq - 1)
 
     freqv = collect(range(freqmin, freqmax, step=df))
 
-    Q = zeros(nfreq)
-    q_j = zeros(nfreq, M, 2)
+    Q = zeros(tscs.nfreq)
+    q_j = zeros(tscs.nfreq, M, 2)
 
     Threads.@threads for Ifreq = 1 : length(freqv)
         freq = freqv[Ifreq][1]
-        Q[Ifreq], q_j[Ifreq, :, :] = single_frequency_tscs(M, x, xM, absr, argr, freq, c0, aa)
+        Q[Ifreq], q_j[Ifreq, :, :] = σ(tscs, x, xM, absr, argr, freq)
     end
 
     ## computing final values
-    Q_RMS = sqrt((1 / nfreq) * (sum(Q .^ 2)))
-    q_RMS_j = 1 / (nfreq * Q_RMS) .* sum(q_j, dims=1)
+    Q_RMS = sqrt((1 / tscs.nfreq) * (sum(Q .^ 2)))
+    q_RMS_j = 1 / (tscs.nfreq * Q_RMS) .* sum(q_j, dims=1)
     q_RMS_j = dropdims(q_RMS_j, dims=1)
     qV = reshape(transpose(q_RMS_j), 2 * M, 1)
     qV = Vector{Float64}(vec(qV))
 
-    return Q_RMS, qV, Q
+    ## setting cache
+    tscs.Q_RMS = Q_RMS
+    tscs.qV = qV
+    tscs.Q = Q
 end
+
+"""
+Defines function call for `TSCS` on a `Configuration`
+
+# Example
+```
+objective(config)
+```
+"""
+function (tscs::TSCS)(config::Configuration)
+    return tscs(config.pos)
+end
+
+"""
+Defines function call for `TSCS` on a `CoreConfiguration`
+"""
+function (tscs::TSCS)(design::CoreConfiguration)
+    config = merge_configs(design.core, design.config)
+    return tscs(config)
+end
+
+function scale(tscs::TSCS)
+    return (0.0, maximum(tscs.Q))
+end
+
+function img(tscs::TSCS, objective_scale::Tuple)
+    freqv = range(tscs.k0amin, tscs.k0amax, length=tscs.nfreq) |> collect
+
+    return plot(
+        freqv, tscs.Q,
+        xlabel="ka", ylabel="TSCS",
+        xlim = (freqv[1], freqv[end]),
+        ylim = objective_scale, legend=false)
+end
+
+function img(tscs::TSCS)
+    return img(tscs, scale(tscs))
+end
+
+function now(tscs::TSCS)
+    return vcat(tscs.qV, tscs.Q)
+end
+
+function metric(tscs::TSCS)
+    return tscs.Q_RMS
+end
+
