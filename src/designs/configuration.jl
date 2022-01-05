@@ -1,19 +1,6 @@
 export Configuration, Square, Disc, now
 export MAX_VEL, VEL_DECAY, MIN_DISTANCE
 
-const NUM_CYLINDERS = 7
-const PLANE = Square(15.0)
-const MAX_VEL = 0.2
-const VEL_DECAY = 0.7
-const MIN_DISTANCE = 0.1
-
-const CONFIGURATION_PARAMS = Dict(
-    :M => NUM_CYLINDERS,
-    :plane => PLANE,
-    :max_vel => MAX_VEL,
-    :vel_decay => VEL_DECAY,
-    :min_distance => MIN_DISTANCE)
-
 """
 Defines a type for the plane on which cylinders exist. This type is used to
 dispatch the `get_wall_collisions` function differently for different shapes.
@@ -68,6 +55,19 @@ end
 Returns the outer radius of the `Disc` plane.
 """
 Base.size(plane::Disc) = plane.outer_radius
+
+const NUM_CYLINDERS = 7
+const PLANE = Square(15.0)
+const MAX_VEL = 0.2
+const VEL_DECAY = 0.7
+const MIN_DISTANCE = 0.1
+
+const CONFIGURATION_PARAMS = Dict(
+    :M => NUM_CYLINDERS,
+    :plane => PLANE,
+    :max_vel => MAX_VEL,
+    :vel_decay => VEL_DECAY,
+    :min_distance => MIN_DISTANCE)
 
 """
 Simulates a configuration of cylindrical scatterers on a
