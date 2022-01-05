@@ -1,5 +1,14 @@
 export CoreConfiguration
 
+const PLANE_SIZE = 15.0
+
+const CORE_CONFIGURATION_PARAMS = Dict(
+    :M => NUM_CYLINDERS,
+    :plane_size => PLANE_SIZE,
+    :max_vel => MAX_VEL,
+    :vel_decay => VEL_DECAY,
+    :min_distance => MIN_DISTANCE)
+
 function bulid_core(M::Int)::Matrix
     core = [[0.0, 0.0]]
     radius = 2.1
