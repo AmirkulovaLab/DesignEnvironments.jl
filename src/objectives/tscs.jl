@@ -1,10 +1,23 @@
 export TSCS, img, now
 
+const K0AMAX = 1.0
+const K0AMIN = 0.3
+const NFREQ = 15
 const RHO = 1000.0
 const C0 = 1480.0
 const AA = 1.0
 const A = AA
 const HA = AA / 10
+
+const TSCS_PARAMS = Dict(
+    :k0amax => K0AMAX,
+    :k0amin => K0AMIN,
+    :nfreq => NFREQ,
+    :rho => RHO,
+    :c0 => C0,
+    :aa => AA,
+    :a => A,
+    :ha => HA)
 
 """
 Calculates the Total Scattering Cross Section of a planar `Configuration` of cylindrical scatterers.
