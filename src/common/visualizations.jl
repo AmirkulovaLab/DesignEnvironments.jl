@@ -16,7 +16,7 @@ function (render::Render)(::PreEpisodeStage, policy::AbstractPolicy, env::Design
 end
 
 function (render::Render)(::PostActStage, policy::AbstractPolicy, env::DesignEnvironment)
-    frame(render.a, img(env, render.objective_scale))
+    frame(render.a, plot(env, render.objective_scale))
 end
 
 function (render::Render)(
@@ -24,13 +24,13 @@ function (render::Render)(
         policy::AbstractPolicy, 
         env::DesignEnvironment{CoreConfiguration, TSCS})
 
-    p = img(env, render.objective_scale)
+    p = plot(env, render.objective_scale)
 
-    k0amin = env.objective.k0amin
-    k0amax = env.objective.k0amax
-    nfreq = env.objective.nfreq
-
-    freqv = range(k0amin, k0amax, length=nfreq) |> collect
+    freqv = range(
+        env.objective.k0amin, 
+        env.objective.k0amax, 
+        length=env.objective.nfreq) |> collect
+        
     env.objective(env.design.core)
     plot!(p[2], freqv, env.objective.Q)
     

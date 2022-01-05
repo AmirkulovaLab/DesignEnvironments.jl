@@ -4,12 +4,11 @@ export DE
 const DE = DesignEnvironments
 
 using ReinforcementLearning
-using IntervalSets
-using SpecialFunctions
+using IntervalSets: ClosedInterval
+using SpecialFunctions: besselh, besselj
 using BlockDiagonals: BlockDiagonal
 using LinearAlgebra
 using Plots
-using ProgressMeter
 using Distributions
 
 include("core/all.jl")

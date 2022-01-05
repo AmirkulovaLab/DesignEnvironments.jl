@@ -87,8 +87,8 @@ end
 Creates an image which shows the core (unchanging) configuration as well as the design
 cylinders.
 """
-function DE.img(design::CoreConfiguration)
-    core_img = img(design.core, color=:plum)
+function Plots.plot(design::CoreConfiguration)
+    core_img = plot(design.core, color=:plum)
 
     x, y = design.config.pos[:, 1], design.config.pos[:, 2]
     r = design.config.radii
