@@ -4,7 +4,7 @@ export DE
 const DE = DesignEnvironments
 
 using ReinforcementLearning
-using IntervalSets: ClosedInterval
+using IntervalSets
 using SpecialFunctions: besselh, besselj
 using BlockDiagonals: BlockDiagonal
 using LinearAlgebra
