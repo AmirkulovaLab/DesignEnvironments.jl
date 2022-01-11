@@ -16,8 +16,9 @@ function RLBase.action_space(config::Configuration, is_continuous::Bool)
     return action_space
 end
 
-function RLBase.state_space(design::CoreConfiguration, tscs::DE.TSCS)
-    return state_space(design.config, tscs)
+function RLBase.state_space(design::CoreConfiguration, tscs::TSCS)
+    
+    return state_space(merge_configs(design.core, design.config), tscs)
 end
 
 function RLBase.action_space(design::CoreConfiguration, is_continuous::Bool)
