@@ -163,7 +163,7 @@ x_to_coords(x::AbstractArray)::Matrix = reshape(x, 2, Int(length(x)/2))'
 Obtains the current state of the configuration in the form of a `Vector`. The state
 is comprised of the position and velocity of the cylinders.
 """
-function now(config::Configuration)
+function RLBase.state(config::Configuration)
     pos = coords_to_x(config.pos)
     vel = coords_to_x(config.vel)
     return vcat(pos, vel)

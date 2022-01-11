@@ -344,7 +344,7 @@ function scale(tscs::TSCS)
     return (0.0, maximum(tscs.Q))
 end
 
-function now(tscs::TSCS)
+function RLBase.state(tscs::TSCS)
     return vcat(tscs.qV, tscs.Q)
 end
 

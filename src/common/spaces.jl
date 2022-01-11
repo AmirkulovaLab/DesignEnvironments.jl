@@ -1,5 +1,6 @@
 function RLBase.state_space(config::Configuration, tscs::TSCS)
-    return Space([-Inf..Inf for _ in Base.OneTo(6 * config.M + tscs.nfreq)])
+    n_coords = config.M * 2
+    return Space([-Inf..Inf for _ in Base.OneTo(3 * n_coords + tscs.nfreq)])
 end
 
 function RLBase.action_space(config::Configuration, is_continuous::Bool)

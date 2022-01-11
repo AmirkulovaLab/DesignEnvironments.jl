@@ -4,7 +4,7 @@ using ReinforcementLearning
 params = Dict(
     :is_continuous => false,
     :design_params => Dict(
-        :M => 7,
+        :M => 5,
         :plane_size => 15.0,
         :vel_decay => 0.9
     ),
@@ -23,4 +23,4 @@ env = DesignEnvironment(
 
 policy = RandomPolicy(action_space(env))
 
-run(policy, env, StopWhenDone(), TotalRewardPerEpisode())
+run(policy, env, StopAfterStep(2000), TotalRewardPerEpisode())

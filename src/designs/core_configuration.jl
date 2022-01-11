@@ -71,8 +71,8 @@ function CoreConfiguration(;
     return design
 end
 
-function now(design::CoreConfiguration)
-    return now(design.config)
+function RLBase.state(design::CoreConfiguration)
+    return vcat(state(design.core), state(design.config))
 end
 
 """

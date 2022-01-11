@@ -74,7 +74,7 @@ function RLBase.action_space(env::DesignEnvironment)
 end
 
 function RLBase.state(env::DesignEnvironment)
-    return vcat(now(env.design), now(env.objective))
+    return vcat(state(env.design), state(env.objective))
 end
 
 function RLBase.reward(env::DesignEnvironment)
