@@ -9,7 +9,7 @@ params = Dict(
         :vel_decay => 0.9
     ),
     :objective_params => Dict(
-        :k0amax => 5.0,
+        :k0amax => 1.0,
         :k0amin => 0.3,
         :nfreq => 15
     )
