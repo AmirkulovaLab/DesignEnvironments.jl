@@ -97,8 +97,5 @@ function Plots.plot(env::DesignEnvironment, objective_scale::Tuple)
 end
 
 function Plots.plot(env::DesignEnvironment)
-    return plot(
-        plot(env.design), 
-        plot(env.objective, scale(env.objective)),
-        layout=@layout([a{0.6w} b]))
+    return plot(env, scale(env.objective))
 end
