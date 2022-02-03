@@ -1,14 +1,5 @@
 export CoreConfiguration
 
-const PLANE_SIZE = 15.0
-
-const CORE_CONFIGURATION_PARAMS = Dict(
-    :M => NUM_CYLINDERS,
-    :plane_size => PLANE_SIZE,
-    :max_vel => MAX_VEL,
-    :vel_decay => VEL_DECAY,
-    :min_distance => MIN_DISTANCE)
-
 function bulid_core(M::Int)::Matrix
     core = [[0.0, 0.0]]
     radius = 2.1
@@ -49,9 +40,7 @@ end
 
 function CoreConfiguration(;
     M::Int, plane_size::Float64,
-    max_vel::Float64=MAX_VEL, 
-    vel_decay::Float64=VEL_DECAY, 
-    min_distance::Float64=MIN_DISTANCE)
+    max_vel::Float64, vel_decay::Float64, min_distance::Float64)
 
     plane = Disc(plane_size)
 
@@ -71,9 +60,9 @@ function CoreConfiguration(;
     return design
 end
 
-function RLBase.state(design::CoreConfiguration)
-    return vcat(state(design.core), state(design.config))
-end
+# function RLBase.state(design::CoreConfiguration)
+#     return vcat(state(design.core), state(design.config))
+# end
 
 """
 Reseting the coordinates of the `CoreConfiguration` of cylinders to be in random positions

@@ -1,23 +1,8 @@
-export TSCS, img, now
+export TSCS
 
-const K0AMAX = 1.0
-const K0AMIN = 0.3
-const NFREQ = 15
 const RHO = 1000.0
 const C0 = 1480.0
-const AA = 1.0
-const A = AA
-const HA = AA / 10
-
-const TSCS_PARAMS = Dict(
-    :k0amax => K0AMAX,
-    :k0amin => K0AMIN,
-    :nfreq => NFREQ,
-    :rho => RHO,
-    :c0 => C0,
-    :aa => AA,
-    :a => A,
-    :ha => HA)
+const aa = 1.0
 
 """
 Calculates the Total Scattering Cross Section of a planar `Configuration` of cylindrical scatterers.
@@ -58,10 +43,9 @@ mutable struct TSCS <: AbstractObjective
     Q::Vector
 end
 
-function TSCS(;
-    k0amax, k0amin, nfreq,
-    rho = RHO, c0 = C0, aa = AA, a = A, ha = HA)
-    
+function TSCS(; k0amax, k0amin, nfreq, rho, c0, aa)
+    a = aa
+    ha = aa/10
     Q_RMS = 0.0
     qV = Vector()
     Q = Vector()
@@ -344,9 +328,9 @@ function scale(tscs::TSCS)
     return (0.0, maximum(tscs.Q))
 end
 
-function RLBase.state(tscs::TSCS)
-    return vcat(tscs.qV, tscs.Q)
-end
+# function RLBase.state(tscs::TSCS)
+#     return vcat(tscs.qV, tscs.Q)
+# end
 
 function metric(tscs::TSCS)
     return tscs.Q_RMS
@@ -363,6 +347,6 @@ function Plots.plot(tscs::TSCS, objective_scale::Tuple)
 end
 
 function Plots.plot(tscs::TSCS)
-    return img(tscs, scale(tscs))
+    return plot(tscs, scale(tscs))
 end
 

@@ -1,5 +1,4 @@
-export Configuration, Square, Disc, now
-export MAX_VEL, VEL_DECAY, MIN_DISTANCE
+export Configuration, Square, Disc
 
 """
 Defines a type for the plane on which cylinders exist. This type is used to
@@ -56,19 +55,6 @@ Returns the outer radius of the `Disc` plane.
 """
 Base.size(plane::Disc) = plane.outer_radius
 
-const NUM_CYLINDERS = 7
-const PLANE = Square(15.0)
-const MAX_VEL = 0.2
-const VEL_DECAY = 0.7
-const MIN_DISTANCE = 0.1
-
-const CONFIGURATION_PARAMS = Dict(
-    :M => NUM_CYLINDERS,
-    :plane => PLANE,
-    :max_vel => MAX_VEL,
-    :vel_decay => VEL_DECAY,
-    :min_distance => MIN_DISTANCE)
-
 """
 Simulates a configuration of cylindrical scatterers on a
 two dimentional plane.
@@ -102,16 +88,16 @@ Constructor which initializes a randomly generated Configuration.
 config = Configuration(
     M = 7,
     plane = Square(15.0),
-    max_vel = DE.MAX_VEL,
-    vel_decay = DE.VEL_DECAY,
-    min_distance = DE.MIN_DISTANCE)
+    max_vel = 0.1,
+    vel_decay = 0.7,
+    min_distance = 0.1)
 ```
 
 The arguments `max_vel`, `vel_decay`, and `min_distance` are optional.
 """
-function Configuration(;
+function Configuration(
         M::Int, plane::AbstractPlane,
-        max_vel::Float64=MAX_VEL, vel_decay::Float64=VEL_DECAY, min_distance::Float64=MIN_DISTANCE)
+        max_vel::Float64, vel_decay::Float64, min_distance::Float64)
 
     ## generate starting positions, velocities, and radii
     pos = zeros(M, 2)
@@ -126,6 +112,17 @@ function Configuration(;
 end
 
 """
+Constructor for instantiating a `Configuration` without specifying plane type.
+Plane is assumed to be `Square`.
+"""
+function Configuration(;
+        M::Int, plane_size::Float64, 
+        max_vel::Float64, vel_decay::Float64, min_distance::Float64)
+
+    return Configuration(M, Square(plane_size), max_vel, vel_decay, min_distance)
+end
+
+"""
 Constructor for defining a Configuration from a preexisting set of coordinates.
 
 # Example
@@ -136,7 +133,7 @@ radii = ones(M)
 
 config = Configuration(
     pos, vel, radii, Square(15.0), 
-    DE.MAX_VEL, DE.VEL_DECAY, DE.MIN_DISTANCE)
+    0.1, 0.7, 0.1)
 ```
 """
 function Configuration(
@@ -158,16 +155,6 @@ coords_to_x(coords::Matrix)::Vector = reshape(coords', length(coords))
 Converts a `Vector` of coordinates to a `Matrix`
 """
 x_to_coords(x::AbstractArray)::Matrix = reshape(x, 2, Int(length(x)/2))'
-
-"""
-Obtains the current state of the configuration in the form of a `Vector`. The state
-is comprised of the position and velocity of the cylinders.
-"""
-function RLBase.state(config::Configuration)
-    pos = coords_to_x(config.pos)
-    vel = coords_to_x(config.vel)
-    return vcat(pos, vel)
-end
 
 """
 Generates a set of `M` random coordinates on a `Square` plane. Must be  

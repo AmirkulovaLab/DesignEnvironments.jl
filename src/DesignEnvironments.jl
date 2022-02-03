@@ -10,6 +10,8 @@ using BlockDiagonals: BlockDiagonal
 using LinearAlgebra
 using Plots
 using Distributions
+using CUDA
+using Flux: unsqueeze
 
 include("core/all.jl")
 include("designs/all.jl")

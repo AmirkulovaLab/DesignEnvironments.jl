@@ -1,11 +1,22 @@
-export DesignEnvironment
+export DesignEnvironment, AbstractDesign, AbstractObjective, AbstractState, stack
 
 abstract type AbstractDesign end
 abstract type AbstractObjective end
+abstract type AbstractState end
 
-const IS_CONTINUOUS = true
-const EPISODE_LENGTH = 100
-const PENALTY_WEIGHT = 0.1
+"""
+Stacks one or many states into an array
+"""
+function stack(s::AbstractState...)
+    return hcat(extract.(s)...)
+end
+
+function RLCore.send_to_device(
+        D::Union{CuDevice, Val{:cpu}}, 
+        s::Union{AbstractState, Vector{AbstractState}})
+
+    send_to_device(D, unpack(s))
+end
 
 """
 Base environment for episodic design optimization.
@@ -27,9 +38,14 @@ env = DesignEnvironment(
 - `timestep::Int`: current step number in the episode
 - `penalty::Float64`: holds the current penalty
 """
-mutable struct DesignEnvironment{D <: AbstractDesign, O <: AbstractObjective} <: AbstractEnv
+mutable struct DesignEnvironment{
+        D <: AbstractDesign, 
+        O <: AbstractObjective,
+        S <: AbstractState} <: AbstractEnv
+
     design::D
     objective::O
+    state_type::Type{S}
     is_continuous::Bool
 
     episode_length::Int
@@ -42,13 +58,15 @@ end
 function DesignEnvironment(;
     design::AbstractDesign,
     objective::AbstractObjective,
-    is_continuous::Bool = IS_CONTINUOUS,
-    episode_length::Int = EPISODE_LENGTH,
-    penalty_weight::Float64 = PENALTY_WEIGHT)
+    state_type::Type,
+    is_continuous::Bool,
+    episode_length::Int,
+    penalty_weight::Float64)
 
     ## DesignEnvironment starting at timestep 0
     env = DesignEnvironment(
-        design, objective, is_continuous, episode_length, penalty_weight, 0, 0.0
+        design, objective, state_type,
+        is_continuous, episode_length, penalty_weight, 0, 0.0
         )
 
     reset!(env)
@@ -65,20 +83,20 @@ function RLBase.is_terminated(env::DesignEnvironment)
     return env.timestep >= env.episode_length
 end
 
-function RLBase.state_space(env::DesignEnvironment)
-    return state_space(env.design, env.objective)
+function RLBase.reward(env::DesignEnvironment)
+    return - (metric(env.objective) + env.penalty * env.penalty_weight)
 end
 
 function RLBase.action_space(env::DesignEnvironment)
-    return action_space(env.design, env.is_continuous)
+    return action_space(env.design, env.objective, env.is_continuous)
+end
+
+function RLBase.state_space(env::DesignEnvironment)
+    return state_space(env.design, env.objective, env.state_type)
 end
 
 function RLBase.state(env::DesignEnvironment)
-    return vcat(state(env.design), state(env.objective))
-end
-
-function RLBase.reward(env::DesignEnvironment)
-    return - (metric(env.objective) + env.penalty * env.penalty_weight)
+    return state(env.design, env.objective, env.state_type)
 end
 
 function (env::DesignEnvironment)(action)
