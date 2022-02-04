@@ -8,7 +8,6 @@ function RLBase.state_space(design::Configuration, objective::TSCS, ::Type{Seque
     return (seq_space, feature_space)
 end
 
-
 function RLBase.state(design::Configuration, objective::TSCS, ::Type{SequenceVectorState})
     pos = design.pos
     vel = design.vel

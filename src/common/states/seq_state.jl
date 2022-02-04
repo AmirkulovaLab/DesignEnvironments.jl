@@ -1,7 +1,5 @@
 export SequenceState
 
-export SequenceState
-
 struct SequenceState <: AbstractState
     sequence::Matrix{Float32}
     n_features::Int
@@ -15,7 +13,7 @@ function SequenceState(sequence::Matrix)
     return SequenceState(sequence, n_features, seq_len)
 end
 
-function Base.ndims(state::SequenceState)
+function Base.ndims(::SequenceState)
     return 0
 end
 

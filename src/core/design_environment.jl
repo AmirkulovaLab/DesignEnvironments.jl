@@ -38,11 +38,7 @@ env = DesignEnvironment(
 - `timestep::Int`: current step number in the episode
 - `penalty::Float64`: holds the current penalty
 """
-mutable struct DesignEnvironment{
-        D <: AbstractDesign, 
-        O <: AbstractObjective,
-        S <: AbstractState} <: AbstractEnv
-
+mutable struct DesignEnvironment{D <: AbstractDesign, O <: AbstractObjective, S <: AbstractState} <: AbstractEnv
     design::D
     objective::O
     state_type::Type{S}
@@ -54,6 +50,9 @@ mutable struct DesignEnvironment{
     timestep::Int
     penalty::Float64
 end
+
+RLBase.InformationStyle(::DesignEnvironment) = PERFECT_INFORMATION
+RLBase.ChanceStyle(::DesignEnvironment) = DETERMINISTIC
 
 function DesignEnvironment(;
     design::AbstractDesign,
@@ -100,10 +99,13 @@ function RLBase.state(env::DesignEnvironment)
 end
 
 function (env::DesignEnvironment)(action)
+    ## increment timestep
     env.timestep += 1
+    ## reset penalty
     env.penalty = 0.0
     ## make adjustments to design and record penalty
     env.penalty = env.design(action)
+    ## calculate objective on new design
     env.objective(env.design)
 end
 

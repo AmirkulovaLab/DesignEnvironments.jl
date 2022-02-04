@@ -328,10 +328,6 @@ function scale(tscs::TSCS)
     return (0.0, maximum(tscs.Q))
 end
 
-# function RLBase.state(tscs::TSCS)
-#     return vcat(tscs.qV, tscs.Q)
-# end
-
 function metric(tscs::TSCS)
     return tscs.Q_RMS
 end
