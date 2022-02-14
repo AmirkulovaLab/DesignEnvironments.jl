@@ -4,6 +4,10 @@ abstract type AbstractDesign end
 abstract type AbstractObjective end
 abstract type AbstractState end
 
+Base.ndims(::AbstractState) = 0
+Base.length(::AbstractState) = 1
+Base.getindex(s::AbstractState) = s
+
 """
 Base environment for episodic design optimization.
 
