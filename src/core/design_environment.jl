@@ -5,20 +5,6 @@ abstract type AbstractObjective end
 abstract type AbstractState end
 
 """
-Stacks one or many states into an array
-"""
-function stack(s::AbstractState...)
-    return hcat(extract.(s)...)
-end
-
-function RLCore.send_to_device(
-        D::Union{CuDevice, Val{:cpu}}, 
-        s::Union{AbstractState, Vector{AbstractState}})
-
-    send_to_device(D, unpack(s))
-end
-
-"""
 Base environment for episodic design optimization.
 
 # Example

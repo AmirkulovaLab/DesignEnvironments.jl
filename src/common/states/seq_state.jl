@@ -13,10 +13,15 @@ function SequenceState(sequence::Matrix)
     return SequenceState(sequence, n_features, seq_len)
 end
 
-function Base.ndims(::SequenceState)
-    return 0
-end
-
 function extract(s::SequenceState)
     return unsqueeze(s.sequence, 2)
+end
+
+"""
+Concatenates sequence states along batch dimention
+
+(features, batch, sequence length)
+"""
+function stack(s::SequenceState...)
+    hcat(extract.(s)...)
 end

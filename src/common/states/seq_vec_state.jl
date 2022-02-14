@@ -15,8 +15,8 @@ function stack(s::SequenceVectorState...)
     return (seq_state, vec_state)
 end
 
-function RLCore.send_to_device(D::Val{:cpu}, s::AbstractArray{SequenceVectorState})
-    display("DIFOPJSJSF")
-    seq, features = stack(s...)
-    return (send_to_device(D, seq), send_to_device(D, features))
-end
+# function RLCore.send_to_device(D::Val{:cpu}, s::AbstractArray{SequenceVectorState})
+#     display("DIFOPJSJSF")
+#     seq, features = stack(s...)
+#     return (send_to_device(D, seq), send_to_device(D, features))
+# end
