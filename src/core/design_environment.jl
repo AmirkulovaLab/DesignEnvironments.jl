@@ -50,13 +50,15 @@ function DesignEnvironment(;
     objective::AbstractObjective,
     state_type::Type,
     is_continuous::Bool,
+    terminal_reward::Bool,
     episode_length::Int,
     penalty_weight::Float64)
 
     ## DesignEnvironment starting at timestep 0
     env = DesignEnvironment(
         design, objective, state_type,
-        is_continuous, episode_length, penalty_weight, 0, 0.0
+        is_continuous, terminal_reward, 
+        episode_length, penalty_weight, 0, 0.0
         )
 
     reset!(env)
@@ -66,7 +68,10 @@ end
 function RLBase.reset!(env::DesignEnvironment)
     env.timestep = 0
     reset_design!(env.design)
-    env.objective(env.design)
+
+    if !env.terminal_reward
+        env.objective(env.design)
+    end
 end
 
 function RLBase.is_terminated(env::DesignEnvironment)
@@ -74,7 +79,14 @@ function RLBase.is_terminated(env::DesignEnvironment)
 end
 
 function RLBase.reward(env::DesignEnvironment)
-    return - (metric(env.objective) + env.penalty * env.penalty_weight)
+
+    if !terminal_reward || env.timestep == env.episode_length
+        r = - (metric(env.objective) + env.penalty * env.penalty_weight)
+    else
+        r = - (env.penalty * env.penalty_weight)
+    end
+
+    return r
 end
 
 function RLBase.action_space(env::DesignEnvironment)
@@ -96,8 +108,11 @@ function (env::DesignEnvironment)(action)
     env.penalty = 0.0
     ## make adjustments to design and record penalty
     env.penalty = env.design(action)
+
     ## calculate objective on new design
-    env.objective(env.design)
+    if !env.terminal_reward || env.timestep == env.episode_length
+        env.objective(env.design)
+    end
 end
 
 function Plots.plot(env::DesignEnvironment, objective_scale::Tuple)
