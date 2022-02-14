@@ -70,7 +70,7 @@ function RLBase.reset!(env::DesignEnvironment)
     env.timestep = 0
     reset_design!(env.design)
 
-    env.ogjective(env.design)
+    env.objective(env.design)
 end
 
 function RLBase.is_terminated(env::DesignEnvironment)
