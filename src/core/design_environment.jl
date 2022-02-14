@@ -53,6 +53,7 @@ end
 
 RLBase.InformationStyle(::DesignEnvironment) = PERFECT_INFORMATION
 RLBase.ChanceStyle(::DesignEnvironment) = DETERMINISTIC
+RLBase.RewardStyle(::DesignEnvironment) = STEP_REWARD
 
 function DesignEnvironment(;
     design::AbstractDesign,
