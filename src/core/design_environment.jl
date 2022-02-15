@@ -33,7 +33,6 @@ mutable struct DesignEnvironment{D <: AbstractDesign, O <: AbstractObjective, S 
     objective::O
     state_type::Type{S}
     is_continuous::Bool
-    terminal_metric::Bool
 
     episode_length::Int
     penalty_weight::Float64
@@ -51,15 +50,14 @@ function DesignEnvironment(;
     objective::AbstractObjective,
     state_type::Type,
     is_continuous::Bool,
-    terminal_metric::Bool,
     episode_length::Int,
     penalty_weight::Float64)
 
     ## DesignEnvironment starting at timestep 0
     env = DesignEnvironment(
         design, objective, state_type,
-        is_continuous, terminal_metric, 
-        episode_length, penalty_weight, 0, 0.0
+        is_continuous, episode_length, 
+        penalty_weight, 0, 0.0
         )
 
     reset!(env)
@@ -78,14 +76,7 @@ function RLBase.is_terminated(env::DesignEnvironment)
 end
 
 function RLBase.reward(env::DesignEnvironment)
-
-    if !env.terminal_metric || is_terminated(env)
-        r = - (metric(env.objective) + env.penalty * env.penalty_weight)
-    else
-        r = - (env.penalty * env.penalty_weight)
-    end
-
-    return r
+    return - (metric(env.objective) + env.penalty * env.penalty_weight)
 end
 
 function RLBase.action_space(env::DesignEnvironment)
@@ -109,9 +100,7 @@ function (env::DesignEnvironment)(action)
     env.penalty = env.design(action)
 
     ## calculate objective on new design
-    if !env.terminal_metric || is_terminated(env)
-        env.objective(env.design)
-    end
+    env.objective(env.design)
 end
 
 function Plots.plot(env::DesignEnvironment, objective_scale::Tuple)
