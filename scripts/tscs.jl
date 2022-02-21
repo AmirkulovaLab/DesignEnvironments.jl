@@ -3,14 +3,15 @@ using LinearAlgebra
 using SpecialFunctions: besselj, besselh
 using BlockDiagonals: BlockDiagonal
 using Plots
+using CUDA
 import Flux
+using GPUArrays
 
 const RHO = 1000.0
 const C0 = 1480.0
 
 mutable struct VectorizedTSCS <: AbstractObjective
-    ##
-    device::Function
+    use_cuda::Bool
 
     ## 
     k0amax::Real
@@ -25,15 +26,9 @@ mutable struct VectorizedTSCS <: AbstractObjective
     qV::Vector{Real}
 end
 
-function VectorizedTSCS(;k0amax::Real, k0amin::Real, nfreq::Int, a::Real, rho::Real, c0::Real)
-
-    if CUDA.has_cuda_gpu()
-        device = CuArray
-    else
-        device = Flux.cpu
-    end
+function VectorizedTSCS(;use_cuda::Bool, k0amax::Real, k0amin::Real, nfreq::Int, a::Real, rho::Real, c0::Real)
     
-    return VectorizedTSCS(device, k0amax, k0amin, nfreq, a, rho, c0, [], [])
+    return VectorizedTSCS(use_cuda, k0amax, k0amin, nfreq, a, rho, c0, [], [])
 end
 
 function cartesian_to_polar(x::Vector, y::Vector)
@@ -60,11 +55,18 @@ function frequency_vector(tscs::VectorizedTSCS)
     return freqv
 end
 
-function t_matrix(nv_i::Matrix, ka_i::Float64)
-    J_pv_ka = (besselj.(nv_i .-1, ka_i) - besselj.(nv_i .+ 1, ka_i)) / 2
-    H_pv_ka = (besselh.(nv_i .-1, ka_i) - besselh.(nv_i .+ 1, ka_i)) / 2
+function t_matrix(nv::AbstractArray, ka::Real)
+    J_pv_ka = (besselj.(nv' .- 1, ka) - besselj.(nv' .+ 1, ka)) / 2
+    H_pv_ka = (besselh.(nv' .-1, ka) - besselh.(nv' .+ 1, ka)) / 2
+
     return Diagonal(- J_pv_ka ./ H_pv_ka)
 end
+
+# function t_matrix(nv_i::AbstractArray, ka_i::Float64)
+#     J_pv_ka = (besselj.(nv_i .-1, ka_i) - besselj.(nv_i .+ 1, ka_i)) / 2
+#     H_pv_ka = (besselh.(nv_i .-1, ka_i) - besselh.(nv_i .+ 1, ka_i)) / 2
+#     return Diagonal(- J_pv_ka ./ H_pv_ka)
+# end
 
 function plane_wave_amplitude(k0_i::Float64, xM::Vector, nv_i::Matrix, )
 
@@ -75,14 +77,14 @@ function (tscs::VectorizedTSCS)(x::Matrix)
     yM = x[:, 2]
     M = length(xM)
 
-    polar_coords = cartesian_to_polar(xM, yM) |> tscs.device
-    freqv = frequency_vector(tscs) |> tscs.device
+    polar_coords = cartesian_to_polar(xM, yM)
+    freqv = frequency_vector(tscs)
 
     ## rotating angle by 2 pi if negative
     invalid_angle = polar_coords[:, 2] .< 0
     polar_coords[invalid_angle, 2] .+= 2 * pi
 
-    ## computing scattering at each frequency
+    # ## computing scattering at each frequency
     omega = 2 * pi .* freqv
     k0 = omega ./ tscs.c0
 
@@ -91,7 +93,8 @@ function (tscs::VectorizedTSCS)(x::Matrix)
 
     nmax = round.(2.5 * ka)
 
-    nv = range.(-nmax, nmax) .|> collect .|> transpose .|> Array
+    # nv = range.(-nmax, nmax) .|> collect .|> transpose .|> Array
+    nv = range.(-nmax, nmax) .|> collect
 
     T0 = t_matrix.(nv, ka)
     T1 = t_matrix.(nv, kaa)
@@ -102,12 +105,9 @@ function (tscs::VectorizedTSCS)(x::Matrix)
     end
 
     T_diag = BlockDiagonal.(T)
+    T_diag = cat(T_diag..., dims = 3)
+    T_diag = permutedims(T_diag, (3, 1, 2)) |> cu
 
-    # exp.(im * k0 * xM[1]) * exp.(im * nv * pi / 2)
-
-    # im * k0 * xM[1]
-
-    k0[1]
 end
 
 ## locations
@@ -127,6 +127,7 @@ design = Configuration(
     min_distance = 0.1)
 
 tscs = VectorizedTSCS(
+    use_cuda = has_cuda_gpu(),
     k0amax = 1.0,
     k0amin = 0.3,
     nfreq = 20,
