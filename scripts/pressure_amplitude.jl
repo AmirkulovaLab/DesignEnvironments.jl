@@ -10,9 +10,16 @@ struct PressureAmplitude <: AbstractObjective
     k0amin::Real
     nfreq::Int
     R2::Real
+    a::Real
     rho::Real
     c0::Real
-    a::Real
+end
+
+function cartesian_to_polar(x::Vector, y::Vector)
+    distances = sqrt.(x .^2 .+ y .^2)
+    angles = atan.(y, x)
+
+    return hcat(distances, angles)
 end
 
 """
@@ -46,20 +53,46 @@ function geometry(
     return cylinder_polar, cylinder_focal_polar, far_field_distance
 end
 
+"""
+Calculates the vector of frequencies to calculate pressure amplitude at.
+
+# Arguments
+-`pa::PressureAmplitude`: struct which specifies pressure amplitude calculations
+"""
 function frequency(pa::PressureAmplitude)
-    freq_max = (pa.k0amax) * pa.c0 / (2 * pi * pa.a)
-    freq_min = (pa.k0amin) * pa.c0 / (2 * pi * pa.a)
+    freq_max = pa.k0amax * pa.c0 / (2 * pi * pa.a)
+    freq_min = pa.k0amin * pa.c0 / (2 * pi * pa.a)
 
     df = (freq_max - freq_min) / (pa.nfreq - 1)
+
+    freqv = collect(freq_min:df:freq_max)
+
+    return freqv
 end
 
 function (pa::PressureAmplitude)(x::Matrix,  xf::Vector)
-    xM = x[:, 1]
-    yM = x[:, 2]
-    focal_x, focal_y = xf
+    xM = x[:, 1] ## x coords of cylinders
+    yM = x[:, 2] ## y coords of cylinders
+    focal_x, focal_y = xf ## x and y coords of focal point
+    M = length(xM) ## obtaining number of cylinders
 
-    cylinder_polar, cylinder_focal_polar, far_field_distance = geometry(xM, yM, pa.a, focal_x, focal_y)
-    frequency(pa)
+    ## calculating necissary geometric relationships
+    cylinder_polar, cylinder_focal_polar, far_field_distance = 
+        geometry(xM, yM, pa.a, focal_x, focal_y)
+
+    ## obtaining frequency vector for PressureAmplitude
+    freqv = frequency(pa)
+
+    ## initializing zero arrays to hold data
+    kav = zeros(1, size(freqv)...)
+    Q = zeros(size(freqv)... , 1)
+    q_j = zeros(pa.nfreq, M, 2)
+    q_j2 = deepcopy(q_j)
+
+    ## rotating frequency by one period
+    omega = 2 * pi .* freqv
+    k0 = omega ./ pa.c0
+
 end
 
 ## constructing the design
@@ -70,8 +103,14 @@ design = Configuration(
     vel_decay = 0.8,
     min_distance = 0.1)
 
-a = maximum(design.radii)
-pa = PressureAmplitude(1.0, 0.3, 11, 10.0, a, RHO, C0)
+pa = PressureAmplitude(
+    0.45, 
+    0.35, 
+    11, 
+    10.0, 
+    maximum(design.radii),
+    RHO, 
+    C0)
 
 ## focal point
 xf = [12.0, 0.0]
