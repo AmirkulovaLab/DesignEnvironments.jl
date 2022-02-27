@@ -1,11 +1,14 @@
 using DesignEnvironments
 using Plots
 using LinearAlgebra
+using SpecialFunctions: besselh, besselj
+using BlockDiagonals: BlockDiagonal
 
 const RHO = 1000.0
 const C0 = 1480.0
 
-struct PressureAmplitude <: AbstractObjective
+Base.@kwdef struct PressureAmplitude <: AbstractObjective
+    use_cuda::Bool
     k0amax::Real
     k0amin::Real
     nfreq::Int
@@ -70,6 +73,25 @@ function frequency(pa::PressureAmplitude)
     return freqv
 end
 
+function bessel(nv::AbstractArray, ka::Real)
+    J_pv_ka = (besselj.(nv' .- 1, ka) - besselj.(nv' .+ 1, ka)) / 2
+    H_pv_ka = (besselh.(nv' .-1, ka) - besselh.(nv' .+ 1, ka)) / 2
+    return vec(J_pv_ka), vec(H_pv_ka)
+end
+
+function t_matrix(J_pv_ka::Vector, H_pv_ka::Vector)
+    return - (J_pv_ka ./ H_pv_ka) |> diagm
+end
+
+function get_D0()
+
+# function bessel(nv::AbstractArray, ka::Real)
+#     J_pv_ka = (besselj.(nv' .- 1, ka) - besselj.(nv' .+ 1, ka)) / 2
+#     H_pv_ka = (besselh.(nv' .-1, ka) - besselh.(nv' .+ 1, ka)) / 2
+
+#     return (J_pv_ka, H_pv_ka)
+# end
+
 function (pa::PressureAmplitude)(x::Matrix,  xf::Vector)
     xM = x[:, 1] ## x coords of cylinders
     yM = x[:, 2] ## y coords of cylinders
@@ -77,15 +99,14 @@ function (pa::PressureAmplitude)(x::Matrix,  xf::Vector)
     M = length(xM) ## obtaining number of cylinders
 
     ## calculating necissary geometric relationships
-    cylinder_polar, cylinder_focal_polar, far_field_distance = 
-        geometry(xM, yM, pa.a, focal_x, focal_y)
+    cylinder_polar, cylinder_focal_polar, far_field_distance = geometry(xM, yM, pa.a, focal_x, focal_y)
 
     ## obtaining frequency vector for PressureAmplitude
     freqv = frequency(pa)
 
     ## initializing zero arrays to hold data
-    kav = zeros(1, size(freqv)...)
-    Q = zeros(size(freqv)... , 1)
+    kav = zeros(1, pa.nfreq)
+    Q = zeros(pa.nfreq, 1)
     q_j = zeros(pa.nfreq, M, 2)
     q_j2 = deepcopy(q_j)
 
@@ -93,6 +114,27 @@ function (pa::PressureAmplitude)(x::Matrix,  xf::Vector)
     omega = 2 * pi .* freqv
     k0 = omega ./ pa.c0
 
+    ka = k0 .* pa.a
+    kaa = k0 .* pa.a ## replace with aa
+    nmax = round.(2.5 * ka)
+    nv = range.(-nmax, nmax) .|> collect
+
+    pv_ka = bessel.(nv, ka)
+    J_pv_ka = getindex.(pv_ka, 1)
+    H_pv_ka = getindex.(pv_ka, 2)
+
+    T0 = t_matrix.(J_pv_ka, H_pv_ka)
+    T1 = deepcopy(T0)
+    invT_0 = t_matrix.(H_pv_ka, J_pv_ka)
+
+    # T = [T0]
+    # for _ in 1:(M-1)
+    #     push!(T, T1)
+    # end
+
+    # T_diag = BlockDiagonal.(T)
+    # T_diag = cat(T_diag..., dims = 3)
+    # T_diag = permutedims(T_diag, (3, 1, 2))
 end
 
 ## constructing the design
@@ -104,13 +146,14 @@ design = Configuration(
     min_distance = 0.1)
 
 pa = PressureAmplitude(
-    0.45, 
-    0.35, 
-    11, 
-    10.0, 
-    maximum(design.radii),
-    RHO, 
-    C0)
+    use_cuda = false,
+    k0amax = 0.45, 
+    k0amin = 0.35, 
+    nfreq = 11, 
+    R2 = 10.0, 
+    a = maximum(design.radii),
+    rho = RHO, 
+    c0 = C0)
 
 ## focal point
 xf = [12.0, 0.0]

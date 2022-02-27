@@ -5,7 +5,6 @@ using BlockDiagonals: BlockDiagonal
 using Plots
 using CUDA
 import Flux
-using GPUArrays
 
 const RHO = 1000.0
 const C0 = 1480.0
