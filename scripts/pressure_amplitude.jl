@@ -3,6 +3,7 @@ using Plots
 using LinearAlgebra
 using SpecialFunctions: besselh, besselj
 using BlockDiagonals: BlockDiagonal
+using CUDA
 
 const RHO = 1000.0
 const C0 = 1480.0
@@ -83,14 +84,13 @@ function t_matrix(J_pv_ka::Vector, H_pv_ka::Vector)
     return - (J_pv_ka ./ H_pv_ka) |> diagm
 end
 
-function get_D0()
+function build_Ainv(k0::Float64, xM::Vector, nv::Vector)
+    return k0 * xM
+end
 
-# function bessel(nv::AbstractArray, ka::Real)
-#     J_pv_ka = (besselj.(nv' .- 1, ka) - besselj.(nv' .+ 1, ka)) / 2
-#     H_pv_ka = (besselh.(nv' .-1, ka) - besselh.(nv' .+ 1, ka)) / 2
-
-#     return (J_pv_ka, H_pv_ka)
-# end
+function im_vector_power(nv_i::Vector)
+    return im .^ nv_i
+end
 
 function (pa::PressureAmplitude)(x::Matrix,  xf::Vector)
     xM = x[:, 1] ## x coords of cylinders
@@ -126,15 +126,20 @@ function (pa::PressureAmplitude)(x::Matrix,  xf::Vector)
     T0 = t_matrix.(J_pv_ka, H_pv_ka)
     T1 = deepcopy(T0)
     invT_0 = t_matrix.(H_pv_ka, J_pv_ka)
+    # D0 = sqrt.(im * 0.5 * pi * k0 * far_field_distance) .* exp.(-im * k0 * far_field_distance)
 
-    # T = [T0]
-    # for _ in 1:(M-1)
-    #     push!(T, T1)
-    # end
+    Ainv = []
+    for j = 1 : M
+        Ainv_i = exp.(im * k0 * xM[j]) .* im_vector_power.(nv)
+        Ainv_i = hcat(Ainv_i...)
+        push!(Ainv, Ainv_i)
+    end
 
-    # T_diag = BlockDiagonal.(T)
-    # T_diag = cat(T_diag..., dims = 3)
-    # T_diag = permutedims(T_diag, (3, 1, 2))
+    Ainv = cat(Ainv..., dims = 3) |> cu
+
+    Ainv = [Ainv[:, i, :] for i in 1:pa.nfreq]
+    vec_dim = Int.(M * (2 * nmax .+ 1))
+    Ainv = vec.(reshape.(Ainv, vec_dim, 1))
 end
 
 ## constructing the design
