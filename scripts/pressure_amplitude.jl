@@ -115,6 +115,27 @@ function build_Xbig(invT::Matrix, M::Int)
     return Xbig
 end
 
+function build_rjm(x::Matrix)
+    M = size(x, 1)
+    rjm = zeros(2, M, M)
+
+    for j = 1:M
+        for m = 1:M
+            if j != m
+                distance = x[j, :] - x[m, :]
+                xjm, yjm = distance
+                rjm[1, j, m] = norm(distance)
+                rjm[2, j, m] = atan(yjm, xjm)
+            end
+        end
+    end
+
+    return rjm
+end
+
+function 
+end
+
 """
 main function which is called to compute pressure at focal point xf produced by configuration of scatterers x
 """
@@ -154,33 +175,28 @@ function (pa::PressureAmplitude)(x::Matrix,  xf::Vector)
     for j = 1 : M
         ## create a matrix of (nv, nfreq) for each cylinder j
         Ainv_i = exp.(im * k0 * xM[j]) .* im_vector_power.(nv)
-        ## concatenate vector of vectors into matrix
-        Ainv_i = hcat(Ainv_i...)
-        ## store matrix into vector
         push!(Ainv, Ainv_i)
     end
 
-    ## stack matricies along new dimention
-    Ainv = cat(Ainv..., dims = 3)
-    ## extract matricies along the frequency dimention
-    Ainv = [Ainv[:, i, :] for i in 1:pa.nfreq]
-    ## get dimention of flattened matrix
-    vec_dim = (M * (2 * Int.(nmax) .+ 1)) 
-    ## obtain a vector of flattened matricies (vectors)
-    verAv = reshape.(Ainv, vec_dim)
+    # ## get dimention of flattened matrix
+    vec_dim = (M * (2 * Int.(nmax) .+ 1))
 
+    Ainv = transpose.(hcat.(Ainv...))
+    ## obtain a vector of flattened matricies (vectors)
+    verAv = Vector.(reshape.(Ainv, vec_dim))
     Xbig = build_Xbig.(invT_0, M)
 
-    # Xbig = cu.(Xbig)
-    # verAv = cu.(verAv)
-    Xbig .\ verAv
+    ## computing distance and angle matricies
+    rjm = build_rjm(x)
+    absrjm = rjm[1, :, :]
+    argrjm = rjm[2, :, :]
 
-    return 0
+    nv
 end
 
 ## constructing the design
 design = Configuration(
-    M = 40,
+    M = 5,
     plane_size = 20.0,
     max_vel = 0.2,
     vel_decay = 0.8,
@@ -207,6 +223,6 @@ x = [
     -6.01489    1.86352;
     1.74465  -10.0585]
 
-x = design.pos
+# x = design.pos
 
 @time pa(x, xf)
