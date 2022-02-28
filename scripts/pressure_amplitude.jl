@@ -19,6 +19,9 @@ Base.@kwdef struct PressureAmplitude <: AbstractObjective
     c0::Real
 end
 
+"""
+Convert vectors of x and y coordinates into polar coordinate matrix with columns (radius, angle)
+"""
 function cartesian_to_polar(x::Vector, y::Vector)
     distances = sqrt.(x .^2 .+ y .^2)
     angles = atan.(y, x)
@@ -74,24 +77,33 @@ function frequency(pa::PressureAmplitude)
     return freqv
 end
 
-function bessel(nv::AbstractArray, ka::Real)
+"""
+Computes J and H component of the pressure vector over a range of nv.
+"""
+function pressure_vector(nv::Vector, ka::Real)
     J_pv_ka = (besselj.(nv' .- 1, ka) - besselj.(nv' .+ 1, ka)) / 2
     H_pv_ka = (besselh.(nv' .-1, ka) - besselh.(nv' .+ 1, ka)) / 2
     return vec(J_pv_ka), vec(H_pv_ka)
 end
 
+"""
+Take in J_pv_ka and H_pv_ka vectors for single frequency. Solve linear system and place it as diagonal
+in a zero matrix.
+"""
 function t_matrix(J_pv_ka::Vector, H_pv_ka::Vector)
     return - (J_pv_ka ./ H_pv_ka) |> diagm
 end
 
-function build_Ainv(k0::Float64, xM::Vector, nv::Vector)
-    return k0 * xM
-end
-
+"""
+raise the imaginary unit to the power of a vector.
+"""
 function im_vector_power(nv_i::Vector)
     return im .^ nv_i
 end
 
+"""
+main function which is called to compute pressure at focal point xf produced by configuration of scatterers x
+"""
 function (pa::PressureAmplitude)(x::Matrix,  xf::Vector)
     xM = x[:, 1] ## x coords of cylinders
     yM = x[:, 2] ## y coords of cylinders
@@ -104,12 +116,6 @@ function (pa::PressureAmplitude)(x::Matrix,  xf::Vector)
     ## obtaining frequency vector for PressureAmplitude
     freqv = frequency(pa)
 
-    ## initializing zero arrays to hold data
-    kav = zeros(1, pa.nfreq)
-    Q = zeros(pa.nfreq, 1)
-    q_j = zeros(pa.nfreq, M, 2)
-    q_j2 = deepcopy(q_j)
-
     ## rotating frequency by one period
     omega = 2 * pi .* freqv
     k0 = omega ./ pa.c0
@@ -119,10 +125,12 @@ function (pa::PressureAmplitude)(x::Matrix,  xf::Vector)
     nmax = round.(2.5 * ka)
     nv = range.(-nmax, nmax) .|> collect
 
-    pv_ka = bessel.(nv, ka)
+    ## comuting pressure vector for all ka
+    pv_ka = pressure_vector.(nv, ka)
     J_pv_ka = getindex.(pv_ka, 1)
     H_pv_ka = getindex.(pv_ka, 2)
 
+    ## computing t matrix
     T0 = t_matrix.(J_pv_ka, H_pv_ka)
     T1 = deepcopy(T0)
     invT_0 = t_matrix.(H_pv_ka, J_pv_ka)
@@ -130,16 +138,25 @@ function (pa::PressureAmplitude)(x::Matrix,  xf::Vector)
 
     Ainv = []
     for j = 1 : M
+        ## create a matrix of (nv, nfreq) for each cylinder j
         Ainv_i = exp.(im * k0 * xM[j]) .* im_vector_power.(nv)
+        ## concatenate vector of vectors into matrix
         Ainv_i = hcat(Ainv_i...)
+        ## store matrix into vector
         push!(Ainv, Ainv_i)
     end
 
+    ## stack matricies along new dimention
     Ainv = cat(Ainv..., dims = 3) |> cu
 
+    ## extract matricies along the frequency dimention
     Ainv = [Ainv[:, i, :] for i in 1:pa.nfreq]
+    ## get dimention of flattened matrix
     vec_dim = Int.(M * (2 * nmax .+ 1))
-    Ainv = vec.(reshape.(Ainv, vec_dim, 1))
+    ## obtain a vector of flattened matricies (vectors)
+    verAv = vec.(reshape.(Ainv, vec_dim, 1))
+
+    hcat(verAv...)
 end
 
 ## constructing the design
