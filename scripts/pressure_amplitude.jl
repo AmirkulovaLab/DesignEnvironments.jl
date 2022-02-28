@@ -3,6 +3,7 @@ using Plots
 using LinearAlgebra
 using SpecialFunctions: besselh, besselj
 using BlockDiagonals: BlockDiagonal
+using SparseArrays: blockdiag, sparse
 using CUDA
 
 const RHO = 1000.0
@@ -101,6 +102,19 @@ function im_vector_power(nv_i::Vector)
     return im .^ nv_i
 end
 
+function build_Xbig(invT::Matrix, M::Int)
+    vec_dim = size(invT, 1)
+    Xbig = zeros(ComplexF64, vec_dim * M, vec_dim * M)
+
+    for i = 1:M
+        idx = vec_dim * (i - 1) + 1
+        idx_end = vec_dim * i
+        Xbig[idx:idx_end, idx:idx_end] = invT
+    end
+
+    return Xbig
+end
+
 """
 main function which is called to compute pressure at focal point xf produced by configuration of scatterers x
 """
@@ -147,28 +161,33 @@ function (pa::PressureAmplitude)(x::Matrix,  xf::Vector)
     end
 
     ## stack matricies along new dimention
-    Ainv = cat(Ainv..., dims = 3) |> cu
-
+    Ainv = cat(Ainv..., dims = 3)
     ## extract matricies along the frequency dimention
     Ainv = [Ainv[:, i, :] for i in 1:pa.nfreq]
     ## get dimention of flattened matrix
-    vec_dim = Int.(M * (2 * nmax .+ 1))
+    vec_dim = (M * (2 * Int.(nmax) .+ 1)) 
     ## obtain a vector of flattened matricies (vectors)
-    verAv = vec.(reshape.(Ainv, vec_dim, 1))
+    verAv = reshape.(Ainv, vec_dim)
 
-    hcat(verAv...)
+    Xbig = build_Xbig.(invT_0, M)
+
+    # Xbig = cu.(Xbig)
+    # verAv = cu.(verAv)
+    Xbig .\ verAv
+
+    return 0
 end
 
 ## constructing the design
 design = Configuration(
-    M = 5,
-    plane_size = 15.0,
+    M = 40,
+    plane_size = 20.0,
     max_vel = 0.2,
     vel_decay = 0.8,
     min_distance = 0.1)
 
 pa = PressureAmplitude(
-    use_cuda = false,
+    use_cuda = true,
     k0amax = 0.45, 
     k0amin = 0.35, 
     nfreq = 11, 
@@ -188,4 +207,6 @@ x = [
     -6.01489    1.86352;
     1.74465  -10.0585]
 
-pa(x, xf)
+x = design.pos
+
+@time pa(x, xf)
