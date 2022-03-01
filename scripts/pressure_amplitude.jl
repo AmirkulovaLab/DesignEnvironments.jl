@@ -133,13 +133,50 @@ function build_rjm(x::Matrix)
     return rjm
 end
 
-function 
+function solve_bessel(nv::Vector, k0::Real, absrjm::Matrix)
+
+    M = size(absrjm, 1)
+    Dp_jm = Vector{Vector{ComplexF32}}()
+    Dp_mj = Vector{Vector{ComplexF32}}()
+    Dh_jm = Vector{Vector{ComplexF32}}()
+    Dh_mj = Vector{Vector{ComplexF32}}()
+    P_jm = Vector{Vector{ComplexF32}}()
+
+    for j = 1:M
+        for m = 1:M
+            if j != m
+                scaled_distance = k0 * absrjm[j, m]
+                for n in nv
+                    shifted_nv = n .- nv
+                    Hvrjm = besselh.(shifted_nv, scaled_distance)
+                    Hpvrjm = besselh.(shifted_nv .- 1, scaled_distance) .- besselh.(shifted_nv .+ 1, scaled_distance) / 2
+
+                    exprjm = exp.(im * shifted_nv * scaled_distance)
+                    push!(Dp_jm, Hpvrjm .* exprjm)
+
+                    Hv_exp = Hvrjm .* exprjm
+                    push!(P_jm, Hv_exp)
+
+                    scaled_Hv_exp = im * shifted_nv .* Hv_exp
+                    push!(Dh_jm, scaled_Hv_exp)
+
+                    exprmj = exp.(im * shifted_nv * (absrjm[j, m] + pi))
+                    push!(Dp_mj, Hpvrjm .* exprmj)
+                    push!(Dh_mj, im * shifted_nv .* Hvrjm .* exprmj)
+                end
+            end
+        end
+    end
+
+    solution_matricies = (Dp_jm, Dp_mj, Dh_jm, Dh_mj, P_jm)
+    solution_matricies = (hcat(solution...) for solution in solution_matricies)
+    return solution_matricies
 end
 
 """
 main function which is called to compute pressure at focal point xf produced by configuration of scatterers x
 """
-function (pa::PressureAmplitude)(x::Matrix,  xf::Vector)
+function (pa::PressureAmplitude)(x::Matrix, xf::Vector)
     xM = x[:, 1] ## x coords of cylinders
     yM = x[:, 2] ## y coords of cylinders
     focal_x, focal_y = xf ## x and y coords of focal point
@@ -158,7 +195,7 @@ function (pa::PressureAmplitude)(x::Matrix,  xf::Vector)
     ka = k0 .* pa.a
     kaa = k0 .* pa.a ## replace with aa
     nmax = round.(2.5 * ka)
-    nv = range.(-nmax, nmax) .|> collect
+    nv = collect.(range.(-nmax, nmax))
 
     ## comuting pressure vector for all ka
     pv_ka = pressure_vector.(nv, ka)
@@ -191,26 +228,53 @@ function (pa::PressureAmplitude)(x::Matrix,  xf::Vector)
     absrjm = rjm[1, :, :]
     argrjm = rjm[2, :, :]
 
-    nv
+    # scaled_distances = [k0[i] * absrjm for i = 1:length(k0)]
+
+    solution = solve_bessel.(
+        nv,
+        k0,
+        [absrjm for _ in 1:pa.nfreq])
+
+    # solve_bessel.(nv, repeat(absrjm, pa.nfreq))
+
+    # if pa.use_cuda
+    #     verAv = cu.(verAv)
+    #     Xbig = cu.(Xbig)
+    # else
+    #     verAv = Vector{ComplexF32}.(verAv)
+    #     Xbig = Matrix{ComplexF32}.(Xbig)
+    # end
+
+    # bV = Xbig .\ verAv
+    # return bV
 end
 
-## constructing the design
-design = Configuration(
-    M = 5,
-    plane_size = 20.0,
-    max_vel = 0.2,
-    vel_decay = 0.8,
-    min_distance = 0.1)
+design_params = Dict(
+    :M => 5,
+    :plane_size => 50.0,
+    :max_vel => 0.2,
+    :vel_decay => 0.8,
+    :min_distance => 0.1)
 
-pa = PressureAmplitude(
-    use_cuda = true,
-    k0amax = 0.45, 
-    k0amin = 0.35, 
-    nfreq = 11, 
-    R2 = 10.0, 
-    a = maximum(design.radii),
-    rho = RHO, 
-    c0 = C0)
+## constructing the design
+design = Configuration(; design_params...)
+
+objective_params = Dict(
+    :k0amax => 0.45,
+    :k0amin => 0.35,
+    :nfreq => 11,
+    :R2 => design_params[:plane_size],
+    :a => maximum(design.radii),
+    :rho => RHO,
+    :c0 => C0)
+
+pa_cpu = PressureAmplitude(
+    use_cuda = false;
+    objective_params...)
+
+pa_cuda = PressureAmplitude(
+    use_cuda = true;
+    objective_params...)
 
 ## focal point
 xf = [12.0, 0.0]
@@ -223,6 +287,14 @@ x = [
     -6.01489    1.86352;
     1.74465  -10.0585]
 
-# x = design.pos
+test_iterations = 5
 
-@time pa(x, xf)
+display("CPU: ")
+for i = 1:test_iterations
+    @time pa_cpu(design.pos, xf)
+end
+
+display("CUDA: ")
+for i = 1:test_iterations
+    @time pa_cuda(design.pos, xf)
+end
