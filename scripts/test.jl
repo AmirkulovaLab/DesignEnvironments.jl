@@ -1,21 +1,30 @@
 using DesignEnvironments
-using Plots
+
+design_params = Dict(
+    :M => 20,
+    :plane_size => 50.0,
+    :max_vel => 0.2,
+    :vel_decay => 0.8,
+    :min_distance => 0.1)
 
 ## constructing the design
-design = Configuration(
-    M = 20,
-    plane_size = 15.0,
-    max_vel = 0.2,
-    vel_decay = 0.8,
-    min_distance = 0.1)
+design = Configuration(; design_params...)
 
-objective = TSCS(
-    k0amax = 2.0,
-    k0amin = 0.35,
-    nfreq = 100,
-    rho = DE.RHO,
-    c0 = DE.C0,
-    aa = maximum(design.radii))
+objective_params = Dict(
+    :k0amax => 2.0,
+    :k0amin => 0.35,
+    :nfreq => 30,
+    :R2 => design_params[:plane_size],
+    :a => maximum(design.radii),
+    :rho => DE.RHO,
+    :c0 => DE.C0)
+
+pa = PressureAmplitude(
+    use_cuda = false;
+    objective_params...)
+
+## focal point
+xf = [12.0, 0.0]
 
 ## locations
 x = [
@@ -26,5 +35,6 @@ x = [
     1.74465  -10.0585]
 
 for _ in 1:10
-    @time objective(design.pos)
+    DE.reset_design!(design)
+    @time pa(design.pos, xf)
 end
