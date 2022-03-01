@@ -304,26 +304,6 @@ function (tscs::TSCS)(x::Matrix)
     tscs.Q = Q
 end
 
-"""
-Defines function call for `TSCS` on a `Configuration`
-
-# Example
-```
-objective(config)
-```
-"""
-function (tscs::TSCS)(config::Configuration)
-    return tscs(config.pos)
-end
-
-"""
-Defines function call for `TSCS` on a `CoreConfiguration`
-"""
-function (tscs::TSCS)(design::CoreConfiguration)
-    config = merge_configs(design.core, design.config)
-    return tscs(config)
-end
-
 function scale(tscs::TSCS)
     return (0.0, maximum(tscs.Q))
 end
@@ -331,18 +311,3 @@ end
 function metric(tscs::TSCS)
     return tscs.Q_RMS
 end
-
-function Plots.plot(tscs::TSCS, objective_scale::Tuple)
-    freqv = range(tscs.k0amin, tscs.k0amax, length=tscs.nfreq) |> collect
-
-    return plot(
-        freqv, tscs.Q,
-        xlabel="ka", ylabel="TSCS",
-        xlim = (freqv[1], freqv[end]),
-        ylim = objective_scale, legend=false)
-end
-
-function Plots.plot(tscs::TSCS)
-    return plot(tscs, scale(tscs))
-end
-

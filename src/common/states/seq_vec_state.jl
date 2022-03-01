@@ -1,4 +1,4 @@
-export SequenceVectorState, stack
+export SequenceVectorState
 
 struct SequenceVectorState <: AbstractState
     seq_state::SequenceState

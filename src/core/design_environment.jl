@@ -102,14 +102,3 @@ function (env::DesignEnvironment)(action)
     ## calculate objective on new design
     env.objective(env.design)
 end
-
-function Plots.plot(env::DesignEnvironment, objective_scale::Tuple)
-    return plot(
-        plot(env.design), 
-        plot(env.objective, objective_scale), 
-        layout=@layout([a{0.6w} b]))
-end
-
-function Plots.plot(env::DesignEnvironment)
-    return plot(env, scale(env.objective))
-end

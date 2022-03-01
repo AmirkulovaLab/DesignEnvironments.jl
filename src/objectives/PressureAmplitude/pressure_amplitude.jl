@@ -1,6 +1,9 @@
 export PressureAmplitude
 
-Base.@kwdef struct PressureAmplitude <: AbstractObjective
+mutable struct PressureAmplitude <: AbstractObjective
+    ## focal point
+    xf::Vector
+
     use_cuda::Bool
     k0amax::Real
     k0amin::Real
@@ -9,6 +12,16 @@ Base.@kwdef struct PressureAmplitude <: AbstractObjective
     a::Real
     rho::Real
     c0::Real
+
+    ## last calculated Q
+    Q::Vector
+end
+
+function PressureAmplitude(;
+        xf, use_cuda, k0amax, k0amin, nfreq, R2, a, rho, c0)
+    Q = zeros(nfreq)
+
+    return PressureAmplitude(xf, use_cuda,  k0amax,  k0amin,  nfreq, R2, a, rho, c0, Q)
 end
 
 """
@@ -217,7 +230,9 @@ end
 """
 main function which is called to compute pressure at focal point xf produced by configuration of scatterers x
 """
-function (pa::PressureAmplitude)(x::Matrix, xf::Vector)
+function (pa::PressureAmplitude)(x::Matrix)
+    xf = pa.xf
+
     xM = x[:, 1] ## x coords of cylinders
     yM = x[:, 2] ## y coords of cylinders
     focal_x, focal_y = xf ## x and y coords of focal point
@@ -308,7 +323,13 @@ function (pa::PressureAmplitude)(x::Matrix, xf::Vector)
     end
 
     pf_fm1 = p_i .+ Vv_fm .* bV
-    Q = abs.(pf_fm1)
+    pa.Q = abs.(pf_fm1)
+end
 
-    return Q
+function scale(pa::PressureAmplitude)
+    return (0.0, maximum(pa.Q))
+end
+
+function metric(pa::PressureAmplitude)
+    return sqrt(mean(pa.Q .^ 2))
 end

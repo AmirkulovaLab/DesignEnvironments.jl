@@ -1,4 +1,4 @@
-export VectorState, stack
+export VectorState
 
 """
 A design state which is represented by a vector.
