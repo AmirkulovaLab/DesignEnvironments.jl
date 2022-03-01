@@ -3,16 +3,16 @@ using Plots
 
 ## constructing the design
 design = Configuration(
-    M = 5,
+    M = 20,
     plane_size = 15.0,
     max_vel = 0.2,
     vel_decay = 0.8,
     min_distance = 0.1)
 
 objective = TSCS(
-    k0amax = 1.0,
-    k0amin = 0.3,
-    nfreq = 15,
+    k0amax = 2.0,
+    k0amin = 0.35,
+    nfreq = 100,
     rho = DE.RHO,
     c0 = DE.C0,
     aa = maximum(design.radii))
@@ -25,4 +25,6 @@ x = [
     -6.01489    1.86352;
     1.74465  -10.0585]
 
-objective(x) |> plot
+for _ in 1:10
+    @time objective(design.pos)
+end

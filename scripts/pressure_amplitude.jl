@@ -194,6 +194,9 @@ end
 
 function focal_point_calculation(x::Matrix, xf::Vector, nv::Vector, k0::Real)
     M = size(x, 1)
+    N = Int(maximum(nv))
+
+    Vh_fm= zeros(ComplexF32, 2*N+1, M)
 
     for j = 1:M
         for m = 1:M
@@ -213,10 +216,11 @@ function focal_point_calculation(x::Matrix, xf::Vector, nv::Vector, k0::Real)
 
             Dp_fm = Hpvrfm .* exprfm
             Dh_fm = im * nv .* Hvrfm .* exprfm
-
-            
+            Vh_fm[:, m] = Hvrfm .* exprfm;
         end
     end
+
+    return Vh_fm
 end
 
 """
@@ -241,7 +245,14 @@ function (pa::PressureAmplitude)(x::Matrix, xf::Vector)
     ka = k0 .* pa.a
     kaa = k0 .* pa.a ## replace with aa
     nmax = round.(2.5 * ka)
+    N = Int.(nmax)
     nv = collect.(range.(-nmax, nmax))
+
+    ## incident plane wave
+    ## normal incident wave direction
+    psi_0deg = 0
+    psi_0 = psi_0deg * pi / 180 
+    p_i = exp.(im * k0 * (xf[1] * cos(psi_0) + xf[2] * sin(psi_0)))
 
     ## comuting pressure vector for all ka
     pv_ka = pressure_vector.(nv, ka)
@@ -262,7 +273,7 @@ function (pa::PressureAmplitude)(x::Matrix, xf::Vector)
     end
 
     # ## get dimention of flattened matrix
-    vec_dim = (M * (2 * Int.(nmax) .+ 1))
+    vec_dim = (M * (2 * N .+ 1))
 
     Ainv = transpose.(hcat.(Ainv...))
     ## obtain a vector of flattened matricies (vectors)
@@ -274,13 +285,13 @@ function (pa::PressureAmplitude)(x::Matrix, xf::Vector)
     absrjm = rjm[1, :, :]
     argrjm = rjm[2, :, :]
     
-    fill_Xbig!.(
-        Xbig,
-        nv,
-        Int.(nmax),
-        k0,
-        [absrjm for _ in 1:pa.nfreq],
-        [argrjm for _ in 1:pa.nfreq])
+    fill_Xbig!(
+        Xbig[1],
+        nv[1],
+        N[1],
+        k0[1],
+        absrjm,
+        argrjm)
 
     if pa.use_cuda
         verAv = cu.(verAv)
@@ -290,13 +301,29 @@ function (pa::PressureAmplitude)(x::Matrix, xf::Vector)
         Xbig = Matrix{ComplexF32}.(Xbig)
     end
 
-    focal_point_calculation(x, xf, nv[1], k0[1])
-    # bV = Xbig .\ verAv
-    # return Xbig
+    bV = Xbig .\ verAv
+
+    Vh_fm = focal_point_calculation.(
+        [x for _ in 1:pa.nfreq],
+        [xf for _ in 1:pa.nfreq],
+        nv, 
+        k0)
+
+    Vv_fm = transpose.(reshape.(Vh_fm, M * (2 * N .+ 1)))
+
+    if pa.use_cuda
+        Vv_fm = cu.(Vv_fm)
+        p_i = cu.(p_i)
+    end
+
+    pf_fm1 = p_i .+ Vv_fm .* bV
+    Q = abs.(pf_fm1)
+
+    return Q
 end
 
 design_params = Dict(
-    :M => 5,
+    :M => 4,
     :plane_size => 50.0,
     :max_vel => 0.2,
     :vel_decay => 0.8,
@@ -306,20 +333,16 @@ design_params = Dict(
 design = Configuration(; design_params...)
 
 objective_params = Dict(
-    :k0amax => 2.0,
+    :k0amax => 0.45,
     :k0amin => 0.35,
-    :nfreq => 30,
+    :nfreq => 11,
     :R2 => design_params[:plane_size],
     :a => maximum(design.radii),
     :rho => RHO,
     :c0 => C0)
 
-pa_cpu = PressureAmplitude(
+pa = PressureAmplitude(
     use_cuda = false;
-    objective_params...)
-
-pa_cuda = PressureAmplitude(
-    use_cuda = true;
     objective_params...)
 
 ## focal point
@@ -333,16 +356,6 @@ x = [
     -6.01489    1.86352;
     1.74465  -10.0585]
 
-# test_iterations = 5
-
-# display("CPU: ")
-# for i = 1:test_iterations
-#     @time pa_cpu(design.pos, xf)
-# end
-
-# display("CUDA: ")
-# for i = 1:test_iterations
-#     @time pa_cuda(design.pos, xf)
-# end
-
-pa_cuda(x, xf)
+for _ in 1:10
+    @time pa(design.pos, xf)
+end
