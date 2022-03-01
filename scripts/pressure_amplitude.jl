@@ -102,6 +102,9 @@ function im_vector_power(nv_i::Vector)
     return im .^ nv_i
 end
 
+"""
+Construct a matrix with the inverse T matrix repeated along the diagonal M times.
+"""
 function build_Xbig(invT::Matrix, M::Int)
     vec_dim = size(invT, 1)
     Xbig = zeros(ComplexF64, vec_dim * M, vec_dim * M)
@@ -115,6 +118,9 @@ function build_Xbig(invT::Matrix, M::Int)
     return Xbig
 end
 
+"""
+Obtain square matricies containing distances and angles between each cylinder. Zero along the diagonal.
+"""
 function build_rjm(x::Matrix)
     M = size(x, 1)
     rjm = zeros(2, M, M)
@@ -185,6 +191,34 @@ function fill_Xbig!(Xbig::Matrix, nv::Vector, nmax::Int, k0::Real, absrjm::Matri
     return solution_matricies
 end
 
+
+function focal_point_calculation(x::Matrix, xf::Vector, nv::Vector, k0::Real)
+    M = size(x, 1)
+
+    for j = 1:M
+        for m = 1:M
+            rfm = xf - x[m, :]
+            xfm, yfm = rfm
+            absrfm = norm(rfm)
+            argrfm = atan(yfm, xfm)
+
+            exprfm = exp.(im * nv * argrfm)
+            
+            scaled_angle = k0 * absrfm
+            Hvrfm = besselh.(nv, scaled_angle)
+            Jvrfm = besselj.(nv, scaled_angle)
+
+            Hpvrfm = (besselh.(nv .- 1, scaled_angle) .- besselh.(nv .+ 1, scaled_angle)) / 2
+            Jpvrfm = (besselj.(nv .- 1, scaled_angle) .- besselj.(nv .+ 1, scaled_angle)) / 2
+
+            Dp_fm = Hpvrfm .* exprfm
+            Dh_fm = im * nv .* Hvrfm .* exprfm
+
+            
+        end
+    end
+end
+
 """
 main function which is called to compute pressure at focal point xf produced by configuration of scatterers x
 """
@@ -239,38 +273,26 @@ function (pa::PressureAmplitude)(x::Matrix, xf::Vector)
     rjm = build_rjm(x)
     absrjm = rjm[1, :, :]
     argrjm = rjm[2, :, :]
-
-    # scaled_distances = [k0[i] * absrjm for i = 1:length(k0)]
-
-    # solution = solve_bessel.(
-    #     nv,
-    #     k0,
-    #     [absrjm for _ in 1:pa.nfreq])
-
-    # Dp_jm, Dp_mj, Dh_jm, Dh_mj, P_jm = 
     
-    fill_Xbig!(
-            Xbig[1],
-            nv[1],
-            Int(nmax[1]),
-            k0[1],
-            absrjm,
-            argrjm)
+    fill_Xbig!.(
+        Xbig,
+        nv,
+        Int.(nmax),
+        k0,
+        [absrjm for _ in 1:pa.nfreq],
+        [argrjm for _ in 1:pa.nfreq])
 
-    display(Xbig[1])
+    if pa.use_cuda
+        verAv = cu.(verAv)
+        Xbig = cu.(Xbig)
+    else
+        verAv = Vector{ComplexF32}.(verAv)
+        Xbig = Matrix{ComplexF32}.(Xbig)
+    end
 
-    # display(P_jm)
-
-    # if pa.use_cuda
-    #     verAv = cu.(verAv)
-    #     Xbig = cu.(Xbig)
-    # else
-    #     verAv = Vector{ComplexF32}.(verAv)
-    #     Xbig = Matrix{ComplexF32}.(Xbig)
-    # end
-
+    focal_point_calculation(x, xf, nv[1], k0[1])
     # bV = Xbig .\ verAv
-    # return bV
+    # return Xbig
 end
 
 design_params = Dict(
@@ -284,9 +306,9 @@ design_params = Dict(
 design = Configuration(; design_params...)
 
 objective_params = Dict(
-    :k0amax => 0.45,
+    :k0amax => 2.0,
     :k0amin => 0.35,
-    :nfreq => 11,
+    :nfreq => 30,
     :R2 => design_params[:plane_size],
     :a => maximum(design.radii),
     :rho => RHO,
@@ -323,4 +345,4 @@ x = [
 #     @time pa_cuda(design.pos, xf)
 # end
 
-pa_cuda(x, xf);
+pa_cuda(x, xf)
