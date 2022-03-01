@@ -323,7 +323,7 @@ function (pa::PressureAmplitude)(x::Matrix, xf::Vector)
 end
 
 design_params = Dict(
-    :M => 4,
+    :M => 20,
     :plane_size => 50.0,
     :max_vel => 0.2,
     :vel_decay => 0.8,
@@ -333,9 +333,9 @@ design_params = Dict(
 design = Configuration(; design_params...)
 
 objective_params = Dict(
-    :k0amax => 0.45,
+    :k0amax => 2.0,
     :k0amin => 0.35,
-    :nfreq => 11,
+    :nfreq => 30,
     :R2 => design_params[:plane_size],
     :a => maximum(design.radii),
     :rho => RHO,
@@ -357,5 +357,6 @@ x = [
     1.74465  -10.0585]
 
 for _ in 1:10
+    DE.reset_design!(design)
     @time pa(design.pos, xf)
 end
