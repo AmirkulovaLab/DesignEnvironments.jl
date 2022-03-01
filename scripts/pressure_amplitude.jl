@@ -133,7 +133,7 @@ function build_rjm(x::Matrix)
     return rjm
 end
 
-function solve_bessel(nv::Vector, k0::Real, absrjm::Matrix)
+function fill_Xbig!(Xbig::Matrix, nv::Vector, nmax::Int, k0::Real, absrjm::Matrix, argrjm::Matrix)
 
     M = size(absrjm, 1)
     Dp_jm = Vector{Vector{ComplexF32}}()
@@ -145,25 +145,37 @@ function solve_bessel(nv::Vector, k0::Real, absrjm::Matrix)
     for j = 1:M
         for m = 1:M
             if j != m
+                P_jm = Vector{Vector{ComplexF32}}()
                 scaled_distance = k0 * absrjm[j, m]
                 for n in nv
                     shifted_nv = n .- nv
                     Hvrjm = besselh.(shifted_nv, scaled_distance)
-                    Hpvrjm = besselh.(shifted_nv .- 1, scaled_distance) .- besselh.(shifted_nv .+ 1, scaled_distance) / 2
+                    Hpvrjm = (besselh.(shifted_nv .- 1, scaled_distance) .- besselh.(shifted_nv .+ 1, scaled_distance)) / 2
+                    exprjm = exp.(im * shifted_nv * argrjm[j, m])
 
-                    exprjm = exp.(im * shifted_nv * scaled_distance)
                     push!(Dp_jm, Hpvrjm .* exprjm)
 
                     Hv_exp = Hvrjm .* exprjm
+
                     push!(P_jm, Hv_exp)
 
                     scaled_Hv_exp = im * shifted_nv .* Hv_exp
                     push!(Dh_jm, scaled_Hv_exp)
 
-                    exprmj = exp.(im * shifted_nv * (absrjm[j, m] + pi))
+                    exprmj = exp.(im * shifted_nv * (argrjm[j, m] + pi))
+
                     push!(Dp_mj, Hpvrjm .* exprmj)
                     push!(Dh_mj, im * shifted_nv .* Hvrjm .* exprmj)
                 end
+                P_jm = hcat(P_jm...)
+
+                N = nmax
+                j_start = (j - 1) * (2 * N + 1) + 1
+                j_end = j * (2 * N + 1)
+
+                m_start = (m - 1) * (2 * N + 1) + 1
+                m_end = m * (2 * N + 1)
+                Xbig[j_start:j_end, m_start:m_end] = -P_jm
             end
         end
     end
@@ -230,12 +242,24 @@ function (pa::PressureAmplitude)(x::Matrix, xf::Vector)
 
     # scaled_distances = [k0[i] * absrjm for i = 1:length(k0)]
 
-    solution = solve_bessel.(
-        nv,
-        k0,
-        [absrjm for _ in 1:pa.nfreq])
+    # solution = solve_bessel.(
+    #     nv,
+    #     k0,
+    #     [absrjm for _ in 1:pa.nfreq])
 
-    # solve_bessel.(nv, repeat(absrjm, pa.nfreq))
+    # Dp_jm, Dp_mj, Dh_jm, Dh_mj, P_jm = 
+    
+    fill_Xbig!(
+            Xbig[1],
+            nv[1],
+            Int(nmax[1]),
+            k0[1],
+            absrjm,
+            argrjm)
+
+    display(Xbig[1])
+
+    # display(P_jm)
 
     # if pa.use_cuda
     #     verAv = cu.(verAv)
@@ -287,14 +311,16 @@ x = [
     -6.01489    1.86352;
     1.74465  -10.0585]
 
-test_iterations = 5
+# test_iterations = 5
 
-display("CPU: ")
-for i = 1:test_iterations
-    @time pa_cpu(design.pos, xf)
-end
+# display("CPU: ")
+# for i = 1:test_iterations
+#     @time pa_cpu(design.pos, xf)
+# end
 
-display("CUDA: ")
-for i = 1:test_iterations
-    @time pa_cuda(design.pos, xf)
-end
+# display("CUDA: ")
+# for i = 1:test_iterations
+#     @time pa_cuda(design.pos, xf)
+# end
+
+pa_cuda(x, xf);
