@@ -1,5 +1,5 @@
 using DesignEnvironments
-using Plots: plot, savefig
+using Plots
 
 design_params = Dict(
     :M => 10,
@@ -22,7 +22,7 @@ objective_params = Dict(
     :c0 => DE.C0)
 
 pressure_amplitude = PressureAmplitude(
-    xf = [12.0, 0.0];
+    xf = [20.0, 0.0];
     objective_params...)
 
 env = DesignEnvironment(
@@ -32,7 +32,7 @@ env = DesignEnvironment(
     episode_length = 100,
     penalty_weight = 0.1,
     state_type = SequenceVectorState)
-
+    
 savefig(plot(env), "env")
 
 # ## locations
