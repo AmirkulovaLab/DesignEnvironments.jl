@@ -9,7 +9,7 @@ function Plots.plot(design::Configuration, objective::PressureAmplitude, objecti
 
     xf = objective.xf
     focal_x, focal_y = xf
-    focal_r = 1.0
+    focal_r = 0.5
     focal_point = DE.cylinder(focal_x, focal_y, focal_r)
     grid_size = design.plane.size
 
