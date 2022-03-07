@@ -2,7 +2,7 @@ export PressureAmplitude
 
 mutable struct PressureAmplitude <: AbstractObjective
     ## focal point
-    xf::Vector
+    xf::AbstractArray
 
     use_cuda::Bool
     k0amax::Real
@@ -291,13 +291,21 @@ function (pa::PressureAmplitude)(x::Matrix)
     absrjm = rjm[1, :, :]
     argrjm = rjm[2, :, :]
     
-    fill_Xbig!(
-        Xbig[1],
-        nv[1],
-        N[1],
-        k0[1],
-        absrjm,
-        argrjm)
+    # fill_Xbig!(
+    #     Xbig[1],
+    #     nv[1],
+    #     N[1],
+    #     k0[1],
+    #     absrjm,
+    #     argrjm)
+
+    fill_Xbig!.(
+        Xbig,
+        nv,
+        N,
+        k0,
+        [absrjm for _ in 1:pa.nfreq],
+        [argrjm for _ in 1:pa.nfreq])
 
     if pa.use_cuda
         verAv = cu.(verAv)
@@ -324,6 +332,10 @@ function (pa::PressureAmplitude)(x::Matrix)
 
     pf_fm1 = p_i .+ Vv_fm .* bV
     pa.Q = abs.(pf_fm1)
+end
+
+function (pa::PressureAmplitude)(x::Matrix, xf::Matrix)
+    pa.(x, xf)
 end
 
 function scale(pa::PressureAmplitude)

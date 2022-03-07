@@ -1,8 +1,9 @@
 using DesignEnvironments
 using ReinforcementLearning
-using IntervalSets
-using DesignEnvironments: metric
-include("../src/common/interactions/Configuration/PressureAmplitude/seq_state.jl")
+using Plots
+# using IntervalSets
+# using DesignEnvironments: metric
+# include("../src/common/interactions/Configuration/PressureAmplitude/seq_state.jl")
 
 ## define design
 cylinders = Configuration(
@@ -15,9 +16,9 @@ cylinders = Configuration(
 ## define objectives
 pressure_amplitude = PressureAmplitude(
     xf = [12.0, 0.0],
-    k0amax = 0.45,
+    k0amax = 1.0,
     k0amin = 0.35,
-    nfreq = 11,
+    nfreq = 100,
     a = maximum(cylinders.radii),
     R2 = cylinders.plane.size,
     rho = DE.RHO,
@@ -28,9 +29,9 @@ pressure_amplitude = PressureAmplitude(
 env = DesignEnvironment(
     design = cylinders,
     objective = pressure_amplitude,
-    state_type = SequenceState,
+    state_type = VectorState,
     is_continuous = false,
     episode_length = 100,
     penalty_weight = 0.1)
 
-s = state_space(env)
+savefig(plot(env), "objective")
