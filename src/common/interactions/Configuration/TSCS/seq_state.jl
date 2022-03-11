@@ -22,5 +22,5 @@ function RLBase.state(design::Configuration, objective::TSCS, ::Type{SequenceSta
         design.vel, 
         DE.x_to_coords(objective.qV)) |> transpose |> Matrix
 
-    return vcat(coords, scattering)
+    return SequenceState(vcat(coords, scattering))
 end
