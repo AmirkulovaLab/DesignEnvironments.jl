@@ -44,6 +44,7 @@ Calculates relevent geometrical relationships between cylinders, far field point
 -`focal_x::Real`: x coord of focal point
 -`focal_y::Real`: y coord of focal point
 """
+
 function geometry(
         xM::Vector, yM::Vector, a::Real,
         focal_x::Real, focal_y::Real)
@@ -250,7 +251,7 @@ function (pa::PressureAmplitude)(x::Matrix)
 
     ka = k0 .* pa.a
     kaa = k0 .* pa.a ## replace with aa
-    nmax = round.(2.5 * ka)
+    nmax = Vector{Float64}(round.(Int, 2.5 * ka, RoundNearestTiesUp))
     N = Int.(nmax)
     nv = collect.(range.(-nmax, nmax))
 
@@ -266,9 +267,10 @@ function (pa::PressureAmplitude)(x::Matrix)
     H_pv_ka = getindex.(pv_ka, 2)
 
     ## computing t matrix
-    T0 = t_matrix.(J_pv_ka, H_pv_ka)
-    T1 = deepcopy(T0)
+    # T0 = t_matrix.(J_pv_ka, H_pv_ka)
+    # T1 = deepcopy(T0)
     invT_0 = t_matrix.(H_pv_ka, J_pv_ka)
+
     # D0 = sqrt.(im * 0.5 * pi * k0 * far_field_distance) .* exp.(-im * k0 * far_field_distance)
 
     Ainv = []
@@ -281,7 +283,9 @@ function (pa::PressureAmplitude)(x::Matrix)
     # ## get dimention of flattened matrix
     vec_dim = (M * (2 * N .+ 1))
 
-    Ainv = transpose.(hcat.(Ainv...))
+    # Ainv = transpose.(hcat.(Ainv...))
+    Ainv = hcat.(Ainv...)
+
     ## obtain a vector of flattened matricies (vectors)
     verAv = Vector.(reshape.(Ainv, vec_dim))
     Xbig = build_Xbig.(invT_0, M)
@@ -290,14 +294,6 @@ function (pa::PressureAmplitude)(x::Matrix)
     rjm = build_rjm(x)
     absrjm = rjm[1, :, :]
     argrjm = rjm[2, :, :]
-    
-    # fill_Xbig!(
-    #     Xbig[1],
-    #     nv[1],
-    #     N[1],
-    #     k0[1],
-    #     absrjm,
-    #     argrjm)
 
     fill_Xbig!.(
         Xbig,
@@ -332,6 +328,8 @@ function (pa::PressureAmplitude)(x::Matrix)
 
     pf_fm1 = p_i .+ Vv_fm .* bV
     pa.Q = abs.(pf_fm1)
+
+    display(pa.Q)
 end
 
 function (pa::PressureAmplitude)(x::Matrix, xf::Matrix)
