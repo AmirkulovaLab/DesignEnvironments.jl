@@ -328,8 +328,6 @@ function (pa::PressureAmplitude)(x::Matrix)
 
     pf_fm1 = p_i .+ Vv_fm .* bV
     pa.Q = abs.(pf_fm1)
-
-    display(pa.Q)
 end
 
 function (pa::PressureAmplitude)(x::Matrix, xf::Matrix)
