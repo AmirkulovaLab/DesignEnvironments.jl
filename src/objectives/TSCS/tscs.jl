@@ -2,7 +2,6 @@ export TSCS
 
 const RHO = 1000.0
 const C0 = 1480.0
-const aa = 1.0
 
 """
 Calculates the Total Scattering Cross Section of a planar `Configuration` of cylindrical scatterers.
@@ -33,35 +32,32 @@ mutable struct TSCS <: AbstractObjective
     nfreq::Int
     rho::Float64
     c0::Float64
-    aa::Float64
-    a::Float64
-    ha::Float64
 
     ## cache of last calculated objective
-    Q_RMS::Float64
-    qV::Vector
-    Q::Vector
+    qV::Vector ## gradient
+    Q::Vector ## objective
 end
 
-function TSCS(; k0amax, k0amin, nfreq, rho, c0, aa)
-    a = aa
-    ha = aa/10
-    Q_RMS = 0.0
+function TSCS(k0amax, k0amin, nfreq, rho, c0)
+
     qV = Vector()
     Q = Vector()
-
-    return TSCS(k0amax, k0amin, nfreq, rho, c0, aa, a, ha, Q_RMS, qV, Q)
+    
+    return TSCS(k0amax, k0amin, nfreq, rho, c0, qV, Q)
 end
 
-function σ(tscs::TSCS, x::Matrix, xM::Vector, absr::Vector, argr::Vector, freq::Float64)
+function σ(tscs::TSCS, x::Matrix, a::Real, absr::Vector, argr::Vector, freq::Float64)
+    xM = x[:, 1]
+
     ## number of cylinders
     M = size(x, 1)
 
     ## establishing properties for σ calculation
+    aa = a
     omega = 2 * pi * freq
     k0 = omega / tscs.c0
-    ka = k0 * tscs.a
-    kaa = k0 * tscs.aa
+    ka = k0 * a
+    kaa = k0 * aa
     nmax = round(2.5 * ka)
     N = Int(nmax)
     nv = collect(-nmax:nmax)
@@ -262,11 +258,14 @@ objective = TSCS(k0amax = 1.0, k0amin = 0.3, nfreq = 30)
 objective(x)
 ```
 """
-function (tscs::TSCS)(x::Matrix)
+function (tscs::TSCS)(coords::Matrix, radii::Vector)
+
+    x = coords
+    a = maximum(radii)
+
     M = size(x, 1)
 
     ## reshaping and transpose
-    # x = Matrix(reshape(x, 2, M)')
     xM = x[:,1]
     yM = x[:,2]
 
@@ -277,8 +276,8 @@ function (tscs::TSCS)(x::Matrix)
     argr[argr .< 0] .+= (2 * pi)
 
     # getting frequency range
-    freqmax = (tscs.k0amax * tscs.c0) / (2 * pi * tscs.a)
-    freqmin = (tscs.k0amin * tscs.c0) / (2 * pi * tscs.a)
+    freqmax = (tscs.k0amax * tscs.c0) / (2 * pi * a)
+    freqmin = (tscs.k0amin * tscs.c0) / (2 * pi * a)
     df = (freqmax - freqmin) / (tscs.nfreq - 1)
 
     freqv = collect(range(freqmin, freqmax, step=df))
@@ -288,7 +287,7 @@ function (tscs::TSCS)(x::Matrix)
 
     Threads.@threads for Ifreq = 1 : length(freqv)
         freq = freqv[Ifreq][1]
-        Q[Ifreq], q_j[Ifreq, :, :] = σ(tscs, x, xM, absr, argr, freq)
+        Q[Ifreq], q_j[Ifreq, :, :] = σ(tscs, x, a, absr, argr, freq)
     end
 
     ## computing final values
@@ -299,7 +298,6 @@ function (tscs::TSCS)(x::Matrix)
     qV = Vector{Float64}(vec(qV))
 
     ## setting cache
-    tscs.Q_RMS = Q_RMS
     tscs.qV = qV
     tscs.Q = Q
 end
@@ -309,5 +307,5 @@ function scale(tscs::TSCS)
 end
 
 function metric(tscs::TSCS)
-    return tscs.Q_RMS
+    return sqrt(mean(tscs.Q .^ 2))
 end

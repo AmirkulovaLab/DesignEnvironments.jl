@@ -115,7 +115,7 @@ end
 Constructor for instantiating a `Configuration` without specifying plane type.
 Plane is assumed to be `Square`.
 """
-function Configuration(;
+function Configuration(
         M::Int, plane_size::Float64, 
         max_vel::Float64, vel_decay::Float64, min_distance::Float64)
 

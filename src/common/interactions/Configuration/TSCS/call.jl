@@ -7,5 +7,5 @@ objective(config)
 ```
 """
 function (tscs::TSCS)(config::Configuration)
-    return tscs(config.pos)
+    return tscs(config.pos, config.radii)
 end
