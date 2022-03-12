@@ -1,7 +1,6 @@
 function RLBase.state_space(design::Configuration, objective::TSCS, ::Type{SequenceState})
     M = design.M
     nfreq = objective.nfreq
-    n_coords = M * 2
 
     feature_dim = 6 + nfreq + 1
 

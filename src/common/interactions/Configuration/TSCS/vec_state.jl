@@ -15,7 +15,7 @@ function RLBase.state(design::Configuration, objective::TSCS, ::Type{VectorState
     vel = coords_to_x(design.vel)
     Q = objective.Q
     qV = objective.qV
-    Q_RMS = objective.Q_RMS
+    Q_RMS = metric(objective)
 
     features = vcat(pos, vel, Q, qV, Q_RMS)
     return VectorState(features)
