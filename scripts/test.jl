@@ -3,27 +3,30 @@ using ReinforcementLearning
 using Plots
 using IntervalSets
 
+## define objectives
+
+cylinders = Configuration(8, 10.0, 0.2, 0.7, 0.1)
+pressure_amplitude = PressureAmplitude(
+    xf = [12.0, 0.0],
+    k0amax = 0.45,
+    k0amin = 0.35,
+    nfreq = 10,
+    a = maximum(cylinders.radii),
+    R2 = cylinders.plane.size,
+    rho = DE.RHO,
+    c0 = DE.C0,
+    use_cuda = false)
+
 env = DesignEnvironment(
-    design = Configuration(8, 10.0, 0.2, 0.7, 0.1),
-    objective = TSCS(1.0, 0.35, 10, DE.RHO, DE.C0),
+    design = cylinders,
+    # objective = TSCS(1.0, 0.35, 10, DE.RHO, DE.C0)
+    objective = pressure_amplitude,
     episode_length = 100,
     penalty_weight = 0.1,
     is_continuous = true,
     state_type = SequenceState)
 
-state(env)
-
-# ## define objectives
-# pressure_amplitude = PressureAmplitude(
-#     xf = [12.0, 0.0],
-#     k0amax = 2.0,
-#     k0amin = 0.35,
-#     nfreq = 100,
-#     a = maximum(cylinders.radii),
-#     R2 = cylinders.plane.size,
-#     rho = DE.RHO,
-#     c0 = DE.C0,
-#     use_cuda = false)
+size(state_space(env))
 
 # env = DesignEnvironment(
 #     design = cylinders,
