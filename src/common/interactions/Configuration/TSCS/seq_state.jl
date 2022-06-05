@@ -4,9 +4,7 @@ function RLBase.state_space(design::Configuration, objective::TSCS, ::Type{Seque
 
     feature_dim = 6 + nfreq + 1
 
-    return Space(Matrix(hcat([[-Inf..Inf for _ in 1:feature_dim] for _ in 1:M]...)))
-
-    return
+    return Matrix(hcat([[-Inf..Inf for _ in 1:feature_dim] for _ in 1:M]...))
 end
 
 """
